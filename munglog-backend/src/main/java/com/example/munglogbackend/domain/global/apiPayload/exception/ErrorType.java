@@ -1,4 +1,4 @@
-package com.example.munglogbackend.application.apiPayload.exception;
+package com.example.munglogbackend.domain.global.apiPayload.exception;
 
 import org.springframework.http.HttpStatus;
 

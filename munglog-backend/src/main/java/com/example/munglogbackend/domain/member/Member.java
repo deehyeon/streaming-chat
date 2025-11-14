@@ -3,7 +3,7 @@ package com.example.munglogbackend.domain.member;
 import com.example.munglogbackend.domain.global.AbstractEntity;
 import com.example.munglogbackend.domain.global.vo.Address;
 import com.example.munglogbackend.domain.global.vo.Email;
-import com.example.munglogbackend.domain.member.dto.MemberRequest;
+import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.member.persistence.EmailAttributeConverter;
 import jakarta.persistence.Column;
@@ -44,13 +44,17 @@ public class Member extends AbstractEntity {
         this.address = address;
     }
 
-    public static Member create(MemberRequest memberRequest) {
+    public static Member create(MemberSignUpRequest memberSignUpRequest) {
         return new Member(
-                memberRequest.name(),
-                memberRequest.email(),
-                memberRequest.password(),
-                memberRequest.role(),
-                memberRequest.address()
+                memberSignUpRequest.name(),
+                Email.from(memberSignUpRequest.email()),
+                memberSignUpRequest.password(),
+                memberSignUpRequest.role(),
+                Address.create(
+                        memberSignUpRequest.address().postalCode(),
+                        memberSignUpRequest.address().streetAddress(),
+                        memberSignUpRequest.address().detailAddress()
+                )
         );
     }
 }

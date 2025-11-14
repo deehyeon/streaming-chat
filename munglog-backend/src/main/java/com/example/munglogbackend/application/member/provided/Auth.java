@@ -1,11 +1,14 @@
 package com.example.munglogbackend.application.member.provided;
 
+import com.example.munglogbackend.application.member.dto.MemberLoginInfo;
+import com.example.munglogbackend.application.member.dto.TokenResponse;
 import com.example.munglogbackend.domain.global.vo.Email;
-import com.example.munglogbackend.domain.member.Member;
-import com.example.munglogbackend.domain.member.dto.MemberRequest;
+import com.example.munglogbackend.domain.member.dto.MemberLoginRequest;
+import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 
 public interface Auth {
-    Member signup(MemberRequest request);
-    Member login(String email, String password);
+    MemberLoginInfo signup(MemberSignUpRequest request);
+    MemberLoginInfo login(MemberLoginRequest request);
     void checkDuplicateEmail(Email email);
+    TokenResponse refresh(String refreshToken);
 }
