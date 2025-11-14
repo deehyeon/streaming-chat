@@ -1,8 +1,8 @@
-package com.example.munglogbackend.application.apiPayload;
+package com.example.munglogbackend.domain.global.apiPayload;
 
-import com.example.munglogbackend.application.apiPayload.exception.GlobalErrorType;
-import com.example.munglogbackend.application.apiPayload.exception.GlobalException;
-import com.example.munglogbackend.application.apiPayload.response.ApiResponse;
+import com.example.munglogbackend.domain.global.apiPayload.exception.GlobalErrorType;
+import com.example.munglogbackend.domain.global.apiPayload.exception.GlobalException;
+import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

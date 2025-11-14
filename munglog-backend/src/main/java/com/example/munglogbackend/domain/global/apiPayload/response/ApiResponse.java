@@ -1,8 +1,8 @@
-package com.example.munglogbackend.application.apiPayload.response;
+package com.example.munglogbackend.domain.global.apiPayload.response;
 
 
-import com.example.munglogbackend.application.apiPayload.exception.ErrorMessage;
-import com.example.munglogbackend.application.apiPayload.exception.ErrorType;
+import com.example.munglogbackend.domain.global.apiPayload.exception.ErrorMessage;
+import com.example.munglogbackend.domain.global.apiPayload.exception.ErrorType;
 
 public record ApiResponse<T>(ResultType result, T data, ErrorMessage error) {
 

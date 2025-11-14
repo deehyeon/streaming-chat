@@ -10,7 +10,7 @@ public class EmailAttributeConverter
 
     @Override
     public String convertToDatabaseColumn(Email attribute) {
-        return attribute == null ? null : attribute.address();
+        return attribute == null ? null : attribute.email();
     }
 
     @Override
