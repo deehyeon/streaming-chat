@@ -1,0 +1,27 @@
+spring:
+  profiles:
+    include:
+
+  application:
+    name: munglog-backend
+
+  data:
+    redis:
+      host: localhost
+      port: 5082
+    datasource:
+      driver-class-name: org.postgresql.Driver
+      url: jdbc:postgresql://localhost:5432/munglogdb
+      password: munglog5082
+      username: munglog
+
+    jpa:
+      database-platform: org.hibernate.dialect.PostgreSQLDialect
+      open-in-view: false
+      hibernate:
+        ddl-auto: create
+      show-sql: true
+      properties:
+        hibernate:
+          format_sql: true
+          use_sql_comments: true
