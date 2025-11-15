@@ -1,4 +1,4 @@
-package com.example.munglogbackend.adapter.security;
+package com.example.munglogbackend.adapter.security.jwt;
 
 import com.example.munglogbackend.application.security.TokenProvider;
 import com.example.munglogbackend.domain.member.exception.AuthErrorType;

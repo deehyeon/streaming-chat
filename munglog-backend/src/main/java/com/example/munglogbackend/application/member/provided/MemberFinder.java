@@ -1,5 +1,6 @@
 package com.example.munglogbackend.application.member.provided;
 
+import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.Member;
 
 /**
@@ -7,5 +8,5 @@ import com.example.munglogbackend.domain.member.Member;
  */
 public interface MemberFinder {
     Member findById(Long memberId);
-    Member findByEmail(String email);
+    Member findByEmail(Email email);
 }
