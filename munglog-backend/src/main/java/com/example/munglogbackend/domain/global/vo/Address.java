@@ -11,13 +11,13 @@ import lombok.NoArgsConstructor;
 @Embeddable
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Address {
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String postalCode;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String street;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String detail;
 
     private Address(String postalCode, String street, String detail) {

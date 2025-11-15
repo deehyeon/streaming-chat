@@ -4,10 +4,13 @@ import com.example.munglogbackend.domain.global.apiPayload.exception.GlobalError
 import com.example.munglogbackend.domain.global.apiPayload.exception.GlobalException;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 
@@ -56,6 +59,12 @@ public class ApiControllerAdvice {
     public ResponseEntity<ApiResponse<?>> handleGlobalException(GlobalException e) {
         log.error("CoreException : {}", e.getMessage(), e);
         return new ResponseEntity<>(ApiResponse.error(e.getErrorType()), e.getErrorType().getStatus());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public void handleNoResourceFound(NoResourceFoundException ex) {
+        // favicon 같은 정적 리소스 404는 굳이 로그 안 찍고 무시
     }
 
     private static final Map<String, GlobalErrorType> VALIDATION_MAP = Map.of(
