@@ -58,7 +58,7 @@ public class Member extends AbstractEntity {
         );
     }
 
-    public static Member createSocialMember(String name, Email email,String password, MemberRole role) {
+    public static Member createSocialMember(String name, Email email, String password, MemberRole role) {
         return new Member(
                 name,
                 email,

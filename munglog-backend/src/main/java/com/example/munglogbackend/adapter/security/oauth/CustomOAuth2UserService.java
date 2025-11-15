@@ -27,9 +27,26 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         OAuth2User oAuth2User = delegate.loadUser(userRequest);
 
         String email = oAuth2User.getAttribute("email");
+        if (email == null) {
+            throw new OAuth2AuthenticationException("Email not provided by OAuth2 provider");
+        }
+
         String name  = oAuth2User.getAttribute("name");
-        String roleParam = userRequest.getAdditionalParameters().get("role").toString();
-        MemberRole role = MemberRole.valueOf(roleParam);
+        if (name == null) {
+            throw new OAuth2AuthenticationException("Name not provided by OAuth2 provider");
+        }
+
+        Object roleObj = userRequest.getAdditionalParameters().get("role");
+        if (roleObj == null) {
+            throw new OAuth2AuthenticationException("Role parameter is required");
+        }
+        String roleParam = roleObj.toString();
+        MemberRole role;
+        try {
+            role = MemberRole.valueOf(roleParam);
+        } catch (IllegalArgumentException e) {
+            throw new OAuth2AuthenticationException("Invalid role parameter: " + roleParam);
+        }
 
         if (memberRepository.findByEmail(new Email(email)).isEmpty()) {
             auth.createMemberByGoogle(new GoogleUserInfoDto(name, email), role);

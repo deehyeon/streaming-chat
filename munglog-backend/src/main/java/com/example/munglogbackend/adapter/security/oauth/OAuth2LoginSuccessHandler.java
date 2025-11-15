@@ -28,6 +28,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
         String email = oAuth2User.getAttribute("email");
+        if (email == null) {
+            throw new IllegalStateException("Email not found in OAuth2 user attributes");
+        }
 
         Member member = memberFinder.findByEmail(new Email(email));
 
@@ -46,6 +49,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private Cookie getRefreshCookie(String refreshToken) {
         Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
         refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(true);
+        refreshCookie.setAttribute("SameSite", "Lax");
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(Math.toIntExact(tokenProvider.getRefreshTokenExpiration()));
         return refreshCookie;
@@ -54,6 +59,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private Cookie getAccessCookie(String accessToken) {
         Cookie accessCookie = new Cookie("access_token", accessToken);
         accessCookie.setHttpOnly(true);
+        accessCookie.setSecure(true);
+        accessCookie.setAttribute("SameSite", "Lax");
         accessCookie.setPath("/");
         accessCookie.setMaxAge(Math.toIntExact(tokenProvider.getAccessTokenExpiration()));
         return accessCookie;
