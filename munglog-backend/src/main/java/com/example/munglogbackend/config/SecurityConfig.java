@@ -46,7 +46,9 @@ public class SecurityConfig {
                                         "/publish/**"
                                         "/oauth2/**",
                                         "/login/oauth2/**",
-                                        "/login-success"
+                                        "/login-success",
+                                        "/connect/**",
+                                        "/publish/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/swagger-ui.html",
@@ -62,5 +64,14 @@ public class SecurityConfig {
                         .successHandler(oAuth2LoginSuccessHandler)             // JWT 발급 후 리다이렉트 or 응답
                 ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
+    }
+
+    /**
+     * BCryptPasswordEncoder
+     * - 비밀번호 해시화
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
