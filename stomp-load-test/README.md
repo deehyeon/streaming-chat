@@ -108,22 +108,6 @@ message_latency_p95,98.76,
 ...
 ```
 
-## 🔧 커스터마이징
-
-### 구독 경로 변경
-
-```go
-// main.go - worker 함수 내
-subscribeFrame := "SUBSCRIBE\nid:sub-1\ndestination:/your/subscription/path\n\n\u0000"
-```
-
-### 메시지 발행 경로 변경
-
-```go
-// main.go - worker 함수 내
-sendFrame := fmt.Sprintf("SEND\ndestination:/your/publish/path\n\n{\"message\":\"%s\"}\u0000", message)
-```
-
 ### 타임아웃 설정
 
 ```go
@@ -167,42 +151,11 @@ var stages = []Stage{
 }
 ```
 
-## 🐛 문제 해결
-
-### "too many open files" 에러
-
-```bash
-ulimit -n 65535
-```
-
-### 메모리 부족
-
-- 스테이지당 워커 수를 줄이세요
-- 테스트 duration을 늘려서 천천히 증가시키세요
-
-### 타임아웃 발생
-
-- 네트워크 연결 확인
-- 서버 성능 확인
-- 타임아웃 값 증가
-
 ## 📝 로그
 
 - **콘솔 로그**: 진행 상황 및 최종 결과
 - **파일 로그**: `load_test.log` - 상세한 에러 로그
 - **CSV 결과**: `load_test_result.csv` - 통계 데이터
-
-## 🔍 주요 개선 사항
-
-### 원본 코드 대비 수정사항
-
-1. ✅ **Race Condition 해결**: `sync.Mutex`로 동시성 안전성 확보
-2. ✅ **통계 함수 수정**: 정렬 후 정확한 중앙값/백분위 계산
-3. ✅ **타이밍 측정 수정**: `Nanosecond()` → `UnixNano()`
-4. ✅ **CSV 저장 기능**: 자동으로 결과 파일 생성
-5. ✅ **에러 핸들링 개선**: 타임아웃 및 예외 처리 강화
-6. ✅ **진행률 표시**: 실시간 프로그레스 바 추가
-7. ✅ **P99 백분위 추가**: 더 상세한 통계 제공
 
 ## 📚 참고 자료
 
@@ -213,7 +166,3 @@ ulimit -n 65535
 ## 📄 라이센스
 
 MIT License
-
----
-
-**Made with ❤️ for high-performance load testing**
