@@ -34,16 +34,19 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/v1/auth/signup/**",
                                         "/actuator/health/readiness",
-                                        "/actuator/health/liveness"
+                                        "/actuator/health/liveness",
+                                        "/v1/auth/login"
                                 ).permitAll()
                                 .requestMatchers(
-                                        "/v1/auth/login"
+                                        "/connect/**",
+                                        "/publish/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/swagger-ui.html",
                                         "/swagger-ui/**",
                                         "/v1/api-docs/**"
                                 ).permitAll()
+
                                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
