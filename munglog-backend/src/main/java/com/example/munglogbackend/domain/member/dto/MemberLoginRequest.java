@@ -1,7 +1,5 @@
 package com.example.munglogbackend.domain.member.dto;
 
-import com.example.munglogbackend.domain.member.Member;
-
 public record MemberLoginRequest(
         String email,
         String password

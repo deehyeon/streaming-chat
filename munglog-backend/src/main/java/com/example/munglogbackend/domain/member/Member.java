@@ -6,10 +6,7 @@ import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.member.persistence.EmailAttributeConverter;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.NaturalId;
@@ -30,6 +27,7 @@ public class Member extends AbstractEntity {
     private String hashedPassword;
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private MemberRole role;
 
     @Embedded
