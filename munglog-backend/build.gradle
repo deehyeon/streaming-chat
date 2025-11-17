@@ -10,7 +10,7 @@ description = 'munglog-backend'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -63,6 +63,8 @@ dependencies {
 
     // WebSocket
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // Social Login
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 }
 
 test {

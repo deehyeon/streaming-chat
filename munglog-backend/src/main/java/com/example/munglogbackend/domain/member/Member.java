@@ -7,12 +7,14 @@ import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.member.persistence.EmailAttributeConverter;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.NaturalId;
 
 @Entity
 @Getter
+@Builder
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 public class Member extends AbstractEntity {
     @Column(nullable = false, length = 30)
@@ -31,7 +33,6 @@ public class Member extends AbstractEntity {
     private MemberRole role;
 
     @Embedded
-    @Column(nullable = false)
     private Address address;
 
     private Member(String name, Email email, String hashedPassword, MemberRole role, Address address) {
@@ -53,6 +54,16 @@ public class Member extends AbstractEntity {
                         memberSignUpRequest.address().streetAddress(),
                         memberSignUpRequest.address().detailAddress()
                 )
+        );
+    }
+
+    public static Member createSocialMember(String name, Email email, String password, MemberRole role) {
+        return new Member(
+                name,
+                email,
+                password,
+                role,
+                null
         );
     }
 }

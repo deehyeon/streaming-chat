@@ -1,6 +1,8 @@
 package com.example.munglogbackend.config;
 
-import com.example.munglogbackend.adapter.security.JwtAuthenticationFilter;
+import com.example.munglogbackend.adapter.security.jwt.JwtAuthenticationFilter;
+import com.example.munglogbackend.adapter.security.oauth.CustomOAuth2UserService;
+import com.example.munglogbackend.adapter.security.oauth.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -20,6 +22,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
@@ -40,6 +44,9 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/connect/**",
                                         "/publish/**"
+                                        "/oauth2/**",
+                                        "/login/oauth2/**",
+                                        "/login-success"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/swagger-ui.html",
@@ -48,17 +55,12 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                ).oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)     // 사용자 정보 받아서 처리 (Member 연동)
+                        )
+                        .successHandler(oAuth2LoginSuccessHandler)             // JWT 발급 후 리다이렉트 or 응답
+                ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
-    }
-
-    /**
-     * BCryptPasswordEncoder
-     * - 비밀번호 해시화
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 }

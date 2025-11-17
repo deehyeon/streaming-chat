@@ -8,18 +8,18 @@ import com.example.munglogbackend.application.security.MemoryMap;
 import com.example.munglogbackend.application.security.TokenProvider;
 import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.Member;
-import com.example.munglogbackend.domain.member.dto.MemberInfo;
-import com.example.munglogbackend.domain.member.dto.MemberLoginRequest;
-import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
-import com.example.munglogbackend.domain.member.dto.TokenInfo;
+import com.example.munglogbackend.domain.member.dto.*;
+import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.member.exception.AuthErrorType;
 import com.example.munglogbackend.domain.member.exception.AuthException;
 import com.example.munglogbackend.domain.member.exception.MemberErrorType;
 import com.example.munglogbackend.domain.member.exception.MemberException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -78,6 +78,25 @@ public class AuthService implements Auth {
         long accessTtl  = tokenProvider.getAccessTokenExpiration();
 
         return new TokenResponse(newAccess, newRefresh, accessTtl, refreshTtl);
+    }
+
+    @Override
+    public void createMemberByGoogle(GoogleUserInfoDto googleUserInfoDto, MemberRole memberRole) {
+        Email email = new Email(googleUserInfoDto.email());
+
+        checkDuplicateEmail(email);
+
+        // 소셜 로그인 유저라 비밀번호는 랜덤값으로 생성
+        String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
+
+        Member member = Member.createSocialMember(
+                googleUserInfoDto.name(),
+                email,
+                randomPassword,
+                memberRole
+        );
+
+        memberRepository.save(member);
     }
 
     private void verifyPassword(String password, String hashedPassword) {

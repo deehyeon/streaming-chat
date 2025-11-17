@@ -60,5 +60,4 @@ public class AuthController {
         TokenResponse tokenResponse = auth.refresh(request.refreshToken());
         return ApiResponse.success(tokenResponse);
     }
-
 }

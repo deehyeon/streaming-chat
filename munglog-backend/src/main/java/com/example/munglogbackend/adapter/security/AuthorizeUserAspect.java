@@ -19,7 +19,6 @@ import java.lang.reflect.Parameter;
 @Aspect
 @Component
 public class AuthorizeUserAspect {
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Before("@annotation(authorizeUser)")

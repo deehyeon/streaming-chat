@@ -1,4 +1,4 @@
-package com.example.munglogbackend.adapter.security;
+package com.example.munglogbackend.adapter.security.jwt;
 
 import com.example.munglogbackend.application.security.TokenProvider;
 import com.example.munglogbackend.domain.member.exception.AuthErrorType;
@@ -8,6 +8,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/v1/api-docs/swagger-config",
             // Health check endpoint
             "/actuator/health/readiness",
-            "/actuator/health/liveness"
+            "/actuator/health/liveness",
+            "/oauth2/",
+            "/login/oauth2/code/",
+            "/login-success"
     );
 
     @Override
@@ -73,6 +77,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
+        }
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
         }
         return null;
     }
