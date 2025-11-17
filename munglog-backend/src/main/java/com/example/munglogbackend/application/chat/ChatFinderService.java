@@ -42,7 +42,7 @@ public class ChatFinderService implements ChatFinder {
 
     @Override
     public long fetchCurrentRoomLatestSeq(Long roomId) {
-        return chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(roomId).map(ChatMessage::getSeq).orElse(0L);
+        return findLatestMessageSeq(roomId);
     }
 
     @Override
@@ -67,7 +67,7 @@ public class ChatFinderService implements ChatFinder {
 
         // 5) ChatRoomSummary 리스트로 반환
         return chatRooms.stream()
-                .sorted(Comparator.comparing(ChatRoom::getLastMessageAt).reversed())
+                .sorted(Comparator.comparing(ChatRoom::getLastMessageAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .map(room -> {
                     long unread = unreadMap.getOrDefault(room.getId(), 0L);
                     return ChatRoomSummary.of(room, unread, room.getLastMessagePreview(), room.getLastMessageAt());
