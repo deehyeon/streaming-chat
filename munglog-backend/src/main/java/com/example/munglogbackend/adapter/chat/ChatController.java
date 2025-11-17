@@ -50,7 +50,7 @@ public class ChatController {
     public void markMessagesAsRead(
             @AuthenticationPrincipal AuthDetails authDetails,
             @PathVariable Long roomId) {
-        chatSaver.updateLastRead(roomId, authDetails.getMemberId(), chatFinder.findLatestMessageSeq(roomId));
+        chatSaver.updateLastRead(roomId, authDetails.getMemberId());
     }
 
     // 채팅방 나가기

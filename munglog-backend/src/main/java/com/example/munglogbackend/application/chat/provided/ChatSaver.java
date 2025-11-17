@@ -14,5 +14,5 @@ public interface ChatSaver {
     void leaveChatRoom(Long roomId, Long memberId);
 
     /** 읽음 처리 */
-    void updateLastRead(Long roomId, Long memberId, long lastReadSeq);
+    void updateLastRead(Long roomId, Long memberId);
 }

@@ -81,6 +81,9 @@ public class ChatFinderService implements ChatFinder {
         chatParticipantRepository.findByChatRoom_IdAndMember_Id(roomId, memberId)
                 .orElseThrow(() -> new ChatException(ChatErrorType.MEMBER_NOT_IN_CHAT_ROOM));
 
+        // 사이즈에 제한을 둔다.
+        if (size > 100) {size = 100;}
+
         Pageable pageable = PageRequest.of(0, size + 1, Sort.by(DESC, "seq"));
         List<ChatMessage> rows;
 

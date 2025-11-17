@@ -68,7 +68,7 @@ public class ChatModifyService implements ChatSaver {
         chatRoom.updateLastMessage(saved.getCreatedAt(), saved.getContent());
 
         // 발신자 본인의 읽음 처리 업데이트
-        updateLastRead(request.roomId(), request.senderId(), seq);
+        updateLastRead(request.roomId(), request.senderId());
         long currentSeq = chatFinder.fetchCurrentRoomLatestSeq(request.roomId());
 
         // STOMP 채팅방으로 브로드캐스트
@@ -100,13 +100,15 @@ public class ChatModifyService implements ChatSaver {
     }
 
     @Override
-    public void updateLastRead(Long roomId, Long memberId, long lastReadSeq) {
+    public void updateLastRead(Long roomId, Long memberId) {
         chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
 
         ChatParticipant participant = chatParticipantRepository
                 .findByChatRoom_IdAndMember_Id(roomId, memberId)
                 .orElseThrow(() -> new ChatException(ChatErrorType.NOT_INCLUDED_IN_CHAT_ROOM));
+
+        long lastReadSeq = chatFinder.findLatestMessageSeq(roomId);
 
         participant.updateLastRead(lastReadSeq);
     }
