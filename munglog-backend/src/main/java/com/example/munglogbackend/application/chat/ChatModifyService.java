@@ -40,6 +40,8 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public Long create(Long memberAId, Long memberBId) {
+        if(memberAId.equals(memberBId)) {throw new ChatException(ChatErrorType.SELF_CHAT_NOT_ALLOWED);}
+
         Member memberA = memberFinder.findById(memberAId);
         Member memberB = memberFinder.findById(memberBId);
 
