@@ -8,7 +8,9 @@
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "lucide-react": "^0.263.1",
-    "three": "^0.128.0"
+    "three": "^0.128.0",
+    "sockjs-client": "^1.6.1",
+    "@stomp/stompjs": "^7.0.0"
   },
   "scripts": {
     "start": "react-scripts start",
