@@ -88,9 +88,9 @@ public class ChatFinderService implements ChatFinder {
         List<ChatMessage> rows;
 
         if (beforeSeq == null) {
-            rows = chatMessageRepository.findByRoomIdOrderBySeqDesc(roomId, pageable);
+            rows = chatMessageRepository.findByRoom_IdOrderBySeqDesc(roomId, pageable);
         } else {
-            rows = chatMessageRepository.findByRoomIdAndSeqLessThanOrderBySeqDesc(roomId, beforeSeq, pageable);
+            rows = chatMessageRepository.findByRoom_IdAndSeqLessThanOrderBySeqDesc(roomId, beforeSeq, pageable);
         }
 
         boolean hasNext = rows.size() > size;
@@ -101,6 +101,14 @@ public class ChatFinderService implements ChatFinder {
 
         List<ChatMessageDto> content = rows.stream().map(ChatMessageDto::fromEntity).toList();
         return new SliceImpl<>(content, PageRequest.of(0, size), hasNext);
+    }
+
+    @Override
+    public ChatParticipant findByRoomIdAndMemberId(Long roomId, Long memberId) {
+        return chatParticipantRepository
+                .findByChatRoom_IdAndMember_Id(roomId, memberId)
+                .orElseThrow(() -> new ChatException(ChatErrorType.NOT_INCLUDED_IN_CHAT_ROOM));
+
     }
 
     @Override

@@ -7,6 +7,8 @@ import com.example.munglogbackend.domain.chat.exception.ChatException;
 import com.example.munglogbackend.domain.member.Member;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
@@ -25,6 +27,7 @@ public class ChatMessage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private ChatRoom room;   // 채팅방
 
     @ManyToOne(fetch = FetchType.LAZY)

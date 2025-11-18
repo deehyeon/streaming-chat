@@ -76,11 +76,11 @@ public class ChatModifyService implements ChatSaver {
 
         // 채팅방 요약 정보 개인 토픽으로 전송
         List<ChatParticipant> chatRoomMembers = chatFinder.findChatParticipants(request.roomId());
-        for (ChatParticipant m : chatRoomMembers) {
-            Long memberId = m.getMember().getId();
+        for (ChatParticipant participant : chatRoomMembers) {
+            Long memberId = participant.getMember().getId();
 
             // 읽지 않은 메시지 수 계산
-            long unread = getUnreadMessageCount(request, m, memberId, currentSeq);
+            long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
 
             messagingTemplate.convertAndSend("/topic/user." + memberId + ".room-summary", ChatRoomSummary.of(chatRoom, unread, chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
             log.info("📡 [convertAndSend] 개인 토픽 전송: /topic/user.{}.room-summary", memberId);
@@ -101,13 +101,8 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public void updateLastRead(Long roomId, Long memberId) {
-        chatRoomRepository.findById(roomId)
-                .orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
-
-        ChatParticipant participant = chatParticipantRepository
-                .findByChatRoom_IdAndMember_Id(roomId, memberId)
-                .orElseThrow(() -> new ChatException(ChatErrorType.NOT_INCLUDED_IN_CHAT_ROOM));
-
+        chatFinder.findRoomByRoomId(roomId);
+        ChatParticipant participant = chatFinder.findByRoomIdAndMemberId(roomId, memberId);
         long lastReadSeq = chatFinder.findLatestMessageSeq(roomId);
 
         participant.updateLastRead(lastReadSeq);
@@ -140,8 +135,8 @@ public class ChatModifyService implements ChatSaver {
         return payload;
     }
 
-    private static long getUnreadMessageCount(ChatMessageDto request, ChatParticipant m, Long memberId, long currentSeq) {
-        long lastReadSeq = Optional.ofNullable(m.getLastReadSeq()).orElse(0L);
+    private static long getUnreadMessageCount(ChatMessageDto request, ChatParticipant participant, Long memberId, long currentSeq) {
+        long lastReadSeq = Optional.ofNullable(participant.getLastReadSeq()).orElse(0L);
         long unread = memberId.equals(request.senderId()) ? 0L : Math.max(0, currentSeq - lastReadSeq);
         return unread;
     }

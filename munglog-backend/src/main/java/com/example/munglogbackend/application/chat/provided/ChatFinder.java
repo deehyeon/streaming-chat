@@ -6,6 +6,7 @@ import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
 import org.springframework.data.domain.Slice;
 
+import javax.swing.text.html.Option;
 import java.util.List;
 
 public interface ChatFinder {
@@ -23,6 +24,8 @@ public interface ChatFinder {
 
     // 특정 seq 이전 N건 조회하기
     Slice<ChatMessageDto> fetchMessagesBeforeSeq(Long roomId, Long beforeSeq, int size, Long memberId);
+
+    ChatParticipant findByRoomIdAndMemberId(Long roomId, Long memberId);
 
     // 채팅방에 존재하는 멤버인지
     boolean isRoomMember(Long roomId, Long memberId);
