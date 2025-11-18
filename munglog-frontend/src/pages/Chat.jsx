@@ -1,190 +1,213 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+
+// API Base URL (환경변수로 관리하는 것을 권장)
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 
 export default function Chat({ setCurrentPage }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [chatList, setChatList] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  const stompClientRef = useRef(null);
+  const subscriptionRef = useRef(null);
+  const currentRoomIdRef = useRef(null);
 
-  // 채팅 목록 데이터
-  const chatList = [
-    {
-      id: 1,
-      name: '당근',
-      lastMessage: '네 잘부탁드려요~~ 그 쪽했습니다.',
-      time: '오전 07:03',
-      unread: 1,
-      verified: true,
-      temperature: 38.2,
-      hasImage: true
-    },
-    {
-      id: 2,
-      name: '푸른하늘투르네',
-      lastMessage: '네 감사합니다~!!',
-      time: '3월 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 3,
-      name: '당근페이',
-      lastMessage: '계좌로 보냈어요. 📱 토스나는 3734...',
-      time: '3일 전',
-      unread: 0,
-      temperature: 36.5,
-      isPay: true,
-      hasImage: true
-    },
-    {
-      id: 4,
-      name: '미미머',
-      lastMessage: '네 감사합니다다~!!',
-      time: '평처들 · 1주 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 5,
-      name: '무항철구',
-      lastMessage: '스타몰을 보냈어요.',
-      time: '광처들 · 1주 전',
-      unread: 2,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 6,
-      name: 'yukdkd',
-      lastMessage: '아~ 네',
-      time: '매대들 · 1일 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 7,
-      name: '달콩고수',
-      lastMessage: '안전이요.',
-      time: '희대들 · 1일 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 8,
-      name: '노녹',
-      lastMessage: '감사합니다~!!!! 쪽 쓰겠습니다!!',
-      time: '유한들 · 1일 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 9,
-      name: '현양성영',
-      lastMessage: '도움 거듭합각니다',
-      time: '매대들 · 2일 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
-    },
-    {
-      id: 10,
-      name: '수빈이',
-      lastMessage: '넵',
-      time: '스물금 · 2일 전',
-      unread: 0,
-      temperature: 36.5,
-      hasImage: true
+  // WebSocket 연결 설정
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken'); // 인증 토큰 가져오기
+    
+    if (!token) {
+      console.error('인증 토큰이 없습니다.');
+      return;
     }
-  ];
 
-  // 메시지 데이터 (선택된 채팅방에 대한)
-  const messages = [
-    {
-      id: 1,
-      type: 'product',
-      product: {
-        image: '📱',
-        title: '파이썬 개발 서적 판매합니다',
-        price: '10,000원'
+    // STOMP 클라이언트 생성
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      connectHeaders: {
+        Authorization: `Bearer ${token}`
       },
-      time: '오후 1:08',
-      isMe: false
-    },
-    {
-      id: 2,
-      text: '네, 쿠파테크에요.',
-      time: '오후 1:08',
-      isMe: false
-    },
-    {
-      id: 3,
-      type: 'image',
-      image: '🐻',
-      text: '감사해요',
-      time: '오후 1:09',
-      isMe: false
-    },
-    {
-      id: 4,
-      date: '2025년 9월8일'
-    },
-    {
-      id: 5,
-      text: '네, 확인 감사드려요!',
-      time: '오후 5:51',
-      isMe: true
-    },
-    {
-      id: 6,
-      text: '혹시 클개발 가능해요 네고 조금 가능하까요...?',
-      time: '오후 5:52',
-      isMe: false
-    },
-    {
-      id: 7,
-      text: '엄마 가능하실거까요?',
-      time: '오전 12:47',
-      isMe: false
-    },
-    {
-      id: 8,
-      text: '엄마로 저하세요??',
-      time: '오전 12:45',
-      isMe: true
-    },
-    {
-      id: 9,
-      text: '확인했습니다!',
-      time: '오전 12:45',
-      isMe: true,
-      status: '전송됨'
-    },
-    {
-      id: 10,
-      text: '확인이에요',
-      time: '오전 10:58',
-      isMe: false,
-      status: '읽음'
+      debug: (str) => {
+        console.log('STOMP Debug:', str);
+      },
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      onConnect: () => {
+        console.log('WebSocket 연결 성공');
+        setIsConnected(true);
+        
+        // 채팅방 목록 로드
+        loadChatRooms();
+      },
+      onStompError: (frame) => {
+        console.error('STOMP 에러:', frame);
+        setIsConnected(false);
+      },
+      onWebSocketClose: () => {
+        console.log('WebSocket 연결 종료');
+        setIsConnected(false);
+      }
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      if (currentRoomIdRef.current) {
+        unsubscribeFromRoom(currentRoomIdRef.current);
+      }
+      if (client.active) {
+        client.deactivate();
+      }
+    };
+  }, []);
+
+  // 채팅방 선택 시 구독 처리
+  useEffect(() => {
+    if (selectedChat && isConnected) {
+      // 이전 채팅방 구독 해제
+      if (currentRoomIdRef.current && currentRoomIdRef.current !== selectedChat) {
+        unsubscribeFromRoom(currentRoomIdRef.current);
+      }
+      
+      // 새 채팅방 구독
+      subscribeToRoom(selectedChat);
+      loadMessages(selectedChat);
+      currentRoomIdRef.current = selectedChat;
     }
-  ];
+
+    // 채팅방 변경 시 이전 방 구독 해제
+    return () => {
+      if (currentRoomIdRef.current && currentRoomIdRef.current !== selectedChat) {
+        unsubscribeFromRoom(currentRoomIdRef.current);
+      }
+    };
+  }, [selectedChat, isConnected]);
+
+  // 채팅방 목록 로드
+  const loadChatRooms = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/api/chat/rooms`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const rooms = await response.json();
+        setChatList(rooms);
+      }
+    } catch (error) {
+      console.error('채팅방 목록 로드 실패:', error);
+    }
+  };
+
+  // 채팅방 메시지 로드
+  const loadMessages = async (roomId) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/api/chat/rooms/${roomId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const msgs = await response.json();
+        setMessages(msgs);
+      }
+    } catch (error) {
+      console.error('메시지 로드 실패:', error);
+    }
+  };
+
+  // 채팅방 구독
+  const subscribeToRoom = (roomId) => {
+    if (!stompClientRef.current || !stompClientRef.current.connected) {
+      console.error('STOMP 클라이언트가 연결되지 않았습니다.');
+      return;
+    }
+
+    // 이미 구독 중인 경우 해제
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
+
+    // 새로운 구독 시작
+    subscriptionRef.current = stompClientRef.current.subscribe(
+      `/topic/rooms/${roomId}`,
+      (message) => {
+        const newMessage = JSON.parse(message.body);
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      }
+    );
+
+    console.log(`채팅방 ${roomId} 구독 완료`);
+  };
+
+  // 채팅방 구독 해제 및 읽음 처리
+  const unsubscribeFromRoom = async (roomId) => {
+    // 구독 해제
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+      console.log(`채팅방 ${roomId} 구독 해제`);
+    }
+
+    // 읽음 처리 API 호출
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/api/chat/rooms/${roomId}/read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        console.log(`채팅방 ${roomId} 읽음 처리 완료`);
+      } else {
+        console.error(`채팅방 ${roomId} 읽음 처리 실패:`, response.status);
+      }
+    } catch (error) {
+      console.error('읽음 처리 API 호출 실패:', error);
+    }
+  };
+
+  // 메시지 전송
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedChat || !stompClientRef.current?.connected) {
+      return;
+    }
+
+    const message = {
+      roomId: selectedChat,
+      content: messageInput,
+      timestamp: new Date().toISOString()
+    };
+
+    stompClientRef.current.publish({
+      destination: `/app/chat/rooms/${selectedChat}/messages`,
+      body: JSON.stringify(message)
+    });
+
+    setMessageInput('');
+  };
 
   const filteredChats = chatList.filter(chat =>
-    chat.name.toLowerCase().includes(searchTerm.toLowerCase())
+    chat.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const selectedChatData = chatList.find(chat => chat.id === selectedChat);
-
-  const handleSendMessage = () => {
-    if (messageInput.trim()) {
-      // 메시지 전송 로직
-      console.log('Sending:', messageInput);
-      setMessageInput('');
-    }
-  };
 
   return (
     <div className="flex h-[calc(100vh-200px)] bg-white border border-gray-200 rounded-lg overflow-hidden -mx-6">
@@ -197,12 +220,10 @@ export default function Chat({ setCurrentPage }) {
               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                 <span className="text-xl">👤</span>
               </div>
-              <h2 className="text-lg font-bold">뽕뽕뽕</h2>
-              <button className="text-gray-400">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
+              <h2 className="text-lg font-bold">채팅</h2>
+              <div className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-green-500' : 'bg-red-500'
+              }`} title={isConnected ? '연결됨' : '연결 끊김'}></div>
             </div>
           </div>
           
@@ -210,77 +231,54 @@ export default function Chat({ setCurrentPage }) {
           <div className="relative">
             <input
               type="text"
-              placeholder="안위된 메시지만 보기"
+              placeholder="채팅방 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
-            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
           </div>
         </div>
 
         {/* 채팅 목록 */}
         <div className="flex-1 overflow-y-auto">
-          {filteredChats.map((chat) => (
-            <button
-              key={chat.id}
-              onClick={() => setSelectedChat(chat.id)}
-              className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                selectedChat === chat.id ? 'bg-orange-50' : ''
-              }`}
-            >
-              {/* 프로필 이미지 */}
-              <div className="relative flex-shrink-0">
-                <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400"></div>
-                </div>
-              </div>
-
-              {/* 채팅 정보 */}
-              <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-sm text-gray-900">{chat.name}</span>
-                    {chat.verified && (
-                      <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                    {chat.isPay && (
-                      <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">pay</span>
-                    )}
+          {filteredChats.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <p>채팅방이 없습니다</p>
+            </div>
+          ) : (
+            filteredChats.map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => setSelectedChat(chat.id)}
+                className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
+                  selectedChat === chat.id ? 'bg-orange-50' : ''
+                }`}
+              >
+                {/* 프로필 이미지 */}
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400"></div>
                   </div>
-                  <span className="text-xs text-gray-500 flex-shrink-0">{chat.time}</span>
                 </div>
-                <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
-              </div>
 
-              {/* 썸네일 이미지 */}
-              {chat.hasImage && (
-                <div className="w-12 h-12 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200"></div>
+                {/* 채팅 정보 */}
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-sm text-gray-900">{chat.name}</span>
+                    <span className="text-xs text-gray-500 flex-shrink-0">{chat.time}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
                 </div>
-              )}
 
-              {/* 읽지 않은 메시지 수 */}
-              {chat.unread > 0 && (
-                <div className="absolute top-4 right-4 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
-                  {chat.unread}
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* 하단 정보 */}
-        <div className="p-3 border-t border-gray-200 text-center">
-          <button className="text-xs text-gray-500 hover:underline">
-            자주묻는 질문 →
-          </button>
+                {/* 읽지 않은 메시지 수 */}
+                {chat.unread > 0 && (
+                  <div className="w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+                    {chat.unread}
+                  </div>
+                )}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -293,126 +291,51 @@ export default function Chat({ setCurrentPage }) {
               <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
                 <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400"></div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-base">{selectedChatData?.name}</span>
-                {selectedChatData?.temperature && (
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-xs font-medium rounded-full">
-                    {selectedChatData.temperature}℃
-                  </span>
-                )}
-              </div>
+              <span className="font-semibold text-base">{selectedChatData?.name}</span>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            <button 
+              onClick={() => setSelectedChat(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           {/* 메시지 영역 */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-            {messages.map((msg) => {
-              // 날짜 구분선
-              if (msg.date) {
-                return (
-                  <div key={msg.id} className="flex items-center justify-center my-4">
-                    <div className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">
-                      {msg.date}
-                    </div>
-                  </div>
-                );
-              }
-
-              // 상품 메시지
-              if (msg.type === 'product') {
-                return (
-                  <div key={msg.id} className="flex items-start gap-2">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>
-                    <div className="max-w-[60%]">
-                      <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-                        <div className="flex gap-3">
-                          <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-2xl flex-shrink-0">
-                            {msg.product.image}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 mb-1">{msg.product.title}</p>
-                            <p className="text-sm font-bold text-gray-900">{msg.product.price}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1 inline-block">{msg.time}</span>
-                    </div>
-                  </div>
-                );
-              }
-
-              // 이미지 메시지
-              if (msg.type === 'image') {
-                return (
-                  <div key={msg.id} className={`flex items-start gap-2 ${
-                    msg.isMe ? 'flex-row-reverse' : ''
-                  }`}>
-                    {!msg.isMe && <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>}
-                    <div className={`max-w-[60%] ${msg.isMe ? 'items-end' : ''}`}>
-                      <div className="bg-white rounded-lg p-2 inline-block">
-                        <div className="text-6xl mb-2">{msg.image}</div>
-                        {msg.text && (
-                          <p className="text-sm text-gray-900">{msg.text}</p>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1 inline-block">{msg.time}</span>
-                    </div>
-                  </div>
-                );
-              }
-
-              // 일반 텍스트 메시지
-              return (
-                <div key={msg.id} className={`flex items-start gap-2 ${
+            {messages.map((msg, index) => (
+              <div key={index} className={`flex items-start gap-2 ${
+                msg.isMe ? 'flex-row-reverse' : ''
+              }`}>
+                {!msg.isMe && (
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>
+                )}
+                <div className={`flex items-end gap-1 max-w-[60%] ${
                   msg.isMe ? 'flex-row-reverse' : ''
                 }`}>
-                  {!msg.isMe && <div className="w-8 h-8 bg-gray-200 rounded-full flex-shrink-0"></div>}
-                  <div className={`flex items-end gap-1 max-w-[60%] ${msg.isMe ? 'flex-row-reverse' : ''}`}>
-                    <div className={`px-4 py-2 rounded-2xl ${
-                      msg.isMe 
-                        ? 'bg-orange-500 text-white rounded-br-sm' 
-                        : 'bg-white text-gray-900 rounded-bl-sm'
-                    }`}>
-                      <p className="text-sm">{msg.text}</p>
-                    </div>
-                    <div className="flex flex-col items-end text-xs text-gray-500 whitespace-nowrap">
-                      {msg.status && <span className="mb-0.5">{msg.status}</span>}
-                      <span>{msg.time}</span>
-                    </div>
+                  <div className={`px-4 py-2 rounded-2xl ${
+                    msg.isMe 
+                      ? 'bg-orange-500 text-white rounded-br-sm' 
+                      : 'bg-white text-gray-900 rounded-bl-sm'
+                  }`}>
+                    <p className="text-sm">{msg.content}</p>
                   </div>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    {new Date(msg.timestamp).toLocaleTimeString('ko-KR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           {/* 하단 입력창 */}
           <div className="p-4 border-t border-gray-200 bg-white">
             <div className="flex items-end gap-2">
-              {/* 추가 기능 버튼 */}
-              <div className="flex gap-2">
-                <button className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </button>
-                <button className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-                <button className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* 메시지 입력 */}
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -420,19 +343,17 @@ export default function Chat({ setCurrentPage }) {
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder="메시지를 입력해주세요"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                  disabled={!isConnected}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm disabled:bg-gray-100"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                  {messageInput.length}/1000
-                </span>
               </div>
 
               {/* 전송 버튼 */}
               <button
                 onClick={handleSendMessage}
-                disabled={!messageInput.trim()}
+                disabled={!messageInput.trim() || !isConnected}
                 className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  messageInput.trim()
+                  messageInput.trim() && isConnected
                     ? 'bg-orange-500 text-white hover:bg-orange-600'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
