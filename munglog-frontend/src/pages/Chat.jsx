@@ -19,7 +19,7 @@ export default function Chat({ setCurrentPage }) {
 
   // WebSocket 연결 설정
   useEffect(() => {
-    const token = localStorage.getItem('accessToken'); // 인증 토큰 가져오기
+    const token = localStorage.getItem('accessToken');
     
     if (!token) {
       console.error('인증 토큰이 없습니다.');
@@ -41,8 +41,6 @@ export default function Chat({ setCurrentPage }) {
       onConnect: () => {
         console.log('WebSocket 연결 성공');
         setIsConnected(true);
-        
-        // 채팅방 목록 로드
         loadChatRooms();
       },
       onStompError: (frame) => {
@@ -69,10 +67,29 @@ export default function Chat({ setCurrentPage }) {
     };
   }, []);
 
+  // 브라우저 종료/새로고침 시 읽음 처리
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentRoomIdRef.current) {
+        // Beacon API를 사용하여 비동기적으로 전송 (브라우저 종료 시에도 동작)
+        const token = localStorage.getItem('accessToken');
+        const url = `${API_BASE_URL}/api/chat/rooms/${currentRoomIdRef.current}/read`;
+        
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   // 채팅방 선택 시 구독 처리
   useEffect(() => {
     if (selectedChat && isConnected) {
-      // 이전 채팅방 구독 해제
+      // 이전 채팅방 구독 해제 및 읽음 처리
       if (currentRoomIdRef.current && currentRoomIdRef.current !== selectedChat) {
         unsubscribeFromRoom(currentRoomIdRef.current);
       }
@@ -82,13 +99,6 @@ export default function Chat({ setCurrentPage }) {
       loadMessages(selectedChat);
       currentRoomIdRef.current = selectedChat;
     }
-
-    // 채팅방 변경 시 이전 방 구독 해제
-    return () => {
-      if (currentRoomIdRef.current && currentRoomIdRef.current !== selectedChat) {
-        unsubscribeFromRoom(currentRoomIdRef.current);
-      }
-    };
   }, [selectedChat, isConnected]);
 
   // 채팅방 목록 로드
@@ -174,13 +184,23 @@ export default function Chat({ setCurrentPage }) {
       });
 
       if (response.ok) {
-        console.log(`채팅방 ${roomId} 읽음 처리 완료`);
+        console.log(`✅ 채팅방 ${roomId} 읽음 처리 완료`);
       } else {
-        console.error(`채팅방 ${roomId} 읽음 처리 실패:`, response.status);
+        console.error(`❌ 채팅방 ${roomId} 읽음 처리 실패:`, response.status);
       }
     } catch (error) {
-      console.error('읽음 처리 API 호출 실패:', error);
+      console.error('❌ 읽음 처리 API 호출 실패:', error);
     }
+  };
+
+  // 채팅방 닫기 (명시적으로 읽음 처리 후 닫기)
+  const handleCloseChat = async () => {
+    if (currentRoomIdRef.current) {
+      await unsubscribeFromRoom(currentRoomIdRef.current);
+      currentRoomIdRef.current = null;
+    }
+    setSelectedChat(null);
+    setMessages([]);
   };
 
   // 메시지 전송
@@ -294,8 +314,9 @@ export default function Chat({ setCurrentPage }) {
               <span className="font-semibold text-base">{selectedChatData?.name}</span>
             </div>
             <button 
-              onClick={() => setSelectedChat(null)}
+              onClick={handleCloseChat}
               className="text-gray-400 hover:text-gray-600"
+              title="채팅방 나가기 (읽음 처리됨)"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
