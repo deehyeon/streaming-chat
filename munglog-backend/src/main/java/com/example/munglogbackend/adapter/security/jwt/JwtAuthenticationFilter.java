@@ -42,7 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/actuator/health/liveness",
             "/oauth2/",
             "/login/oauth2/code/",
-            "/login-success"
+            "/login-success",
+            "/v1/auth/signup",
+            "/v1/auth/login"
     );
 
     @Override

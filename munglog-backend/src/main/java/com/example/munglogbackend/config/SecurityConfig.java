@@ -65,13 +65,4 @@ public class SecurityConfig {
                 ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
-
-    /**
-     * BCryptPasswordEncoder
-     * - 비밀번호 해시화
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 }
