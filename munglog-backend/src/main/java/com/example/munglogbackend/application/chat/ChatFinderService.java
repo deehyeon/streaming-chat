@@ -110,9 +110,7 @@ public class ChatFinderService implements ChatFinder {
 
     @Override
     public long findLatestMessageSeq(Long roomId) {
-        return chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(roomId)
-                .map(ChatMessage::getSeq)
-                .orElse(0L);
+        return chatMessageRepository.findMaxSeqForUpdate(roomId);
     }
 
     private static long getUnReadCount(ChatParticipant cp, Map<Long, Long> latestSeqMap, Long roomId) {
