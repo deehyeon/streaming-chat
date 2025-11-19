@@ -35,8 +35,9 @@ var (
 
 // 전역 변수
 var (
-	token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiYXV0aCI6IlJPTEVfVVNFUiIsImV4cCI6MTczODYwMzIzN30.2BQZ2P8qooLUeuE6Nl1RyBMpdAoJFum5ChfFK5l_eaY"
-	url   = "118.36.152.40:13305"
+	// 환경변수에서 읽어오거나 기본값 사용
+	token = getEnvOrDefault("JWT_TOKEN", "")
+	url   = getEnvOrDefault("TARGET_URL", "localhost:8080")
 
 	// 동시성 안전한 데이터 수집
 	resultsMutex             sync.Mutex
@@ -51,6 +52,14 @@ var (
 	successCount        atomic.Int64
 	activeConnections   atomic.Int64
 )
+
+// 환경변수 읽기 헬퍼 함수
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 // Prometheus metrics HTTP server
 func startMetricsServer(port string) {
@@ -82,7 +91,7 @@ func connectWebSocket(id int) (*websocket.Conn, error) {
 
 func worker(id int, wg *sync.WaitGroup) {
 	defer wg.Done()
-	isFinish := false
+	done := make(chan struct{}) // 채널로 변경하여 data race 해결
 
 	// 활성 연결 수 증가
 	activeConnections.Add(1)
@@ -152,15 +161,13 @@ func worker(id int, wg *sync.WaitGroup) {
 
 	// 메시지 수신을 위한 고루틴
 	go func() {
-		for !isFinish {
+		defer close(done) // 종료 시 채널 닫기
+		for {
 			_, message, err := conn.ReadMessage()
 			if err != nil {
-				if !isFinish {
-					log.Printf("Worker %d 메시지 수신 오류: %v\n", id, err)
-					errorCount.Add(1)
-					metrics.ErrorsTotal.Inc()
-				}
-				isFinish = true
+				log.Printf("Worker %d 메시지 수신 오류: %v\n", id, err)
+				errorCount.Add(1)
+				metrics.ErrorsTotal.Inc()
 				return
 			}
 
@@ -189,7 +196,6 @@ func worker(id int, wg *sync.WaitGroup) {
 					if err != nil {
 						errorCount.Add(1)
 						metrics.ErrorsTotal.Inc()
-						isFinish = true
 						return
 					}
 					currentTime := time.Now().UnixNano()
@@ -210,7 +216,6 @@ func worker(id int, wg *sync.WaitGroup) {
 					receiveMessageCount.Add(1)
 					successCount.Add(1)
 					metrics.SuccessTotal.Inc()
-					isFinish = true
 					return
 				}
 			}
@@ -232,22 +237,25 @@ func worker(id int, wg *sync.WaitGroup) {
 	sendMessageCount.Add(1)
 	metrics.MessagesSent.Inc()
 
-	// 메시지 수신 대기 (최대 30초)
-	timeout := time.After(30 * time.Second)
-	for !isFinish {
-		select {
-		case <-timeout:
-			log.Printf("Worker %d 타임아웃\n", id)
-			errorCount.Add(1)
-			metrics.ErrorsTotal.Inc()
-			return
-		default:
-			time.Sleep(time.Millisecond * 100)
-		}
+	// 메시지 수신 대기 (최대 30초) - 채널 기반으로 변경
+	select {
+	case <-done:
+		// 정상 완료
+		return
+	case <-time.After(30 * time.Second):
+		log.Printf("Worker %d 타임아웃\n", id)
+		errorCount.Add(1)
+		metrics.ErrorsTotal.Inc()
+		return
 	}
 }
 
 func main() {
+	// JWT 토큰 확인
+	if token == "" {
+		log.Fatal("❌ JWT_TOKEN 환경변수가 설정되지 않았습니다.\n사용법: export JWT_TOKEN=your-token-here")
+	}
+
 	// Prometheus 메트릭 서버 시작
 	startMetricsServer("2112")
 
@@ -300,8 +308,12 @@ func main() {
 				time.Sleep(interval)
 			}
 
-			// 진행상황 출력 (10% 단위)
-			if (i+1)%(stage.workers/10) == 0 || i == stage.workers-1 {
+			// 진행상황 출력 - panic 방지
+			step := stage.workers / 10
+			if step == 0 {
+				step = 1
+			}
+			if (i+1)%step == 0 || i == stage.workers-1 {
 				progress := float64(i+1) / float64(stage.workers) * 100
 				fmt.Printf("\r\033[90m  진행: [%-50s] %.0f%% (%d/%d) | 활성: %d | 성공: %d | 오류: %d\033[0m",
 					strings.Repeat("█", int(progress/2)),
