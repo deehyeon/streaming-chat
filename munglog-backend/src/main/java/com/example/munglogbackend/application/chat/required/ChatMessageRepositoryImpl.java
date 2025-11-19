@@ -3,7 +3,9 @@ package com.example.munglogbackend.application.chat.required;
 import com.example.munglogbackend.domain.chat.entity.QChatMessage;
 import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -17,6 +19,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     public Map<Long, Long> findMaxSeqForRoomIds(Collection<Long> roomIds) {
         if (roomIds == null || roomIds.isEmpty()) {
             return Map.of();

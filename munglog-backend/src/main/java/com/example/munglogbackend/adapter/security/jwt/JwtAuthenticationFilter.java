@@ -40,11 +40,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Health check endpoint
             "/actuator/health/readiness",
             "/actuator/health/liveness",
+            // OAuth2
             "/oauth2/",
             "/login/oauth2/code/",
             "/login-success",
+            // SignUp, Login
             "/v1/auth/signup",
-            "/v1/auth/login"
+            "/v1/auth/login",
+            "/connect",
+            "/connect/"
     );
 
     @Override

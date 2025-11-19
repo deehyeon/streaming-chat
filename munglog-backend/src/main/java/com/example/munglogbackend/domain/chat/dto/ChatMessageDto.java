@@ -28,10 +28,6 @@ public record ChatMessageDto(
                 chatMessage.getCreatedAt());
     }
 
-    public static ChatMessageDto system(ChatRoom room, String content) {
-        return new ChatMessageDto(room.getId(), null, MessageType.SYSTEM, content, null, null, null, Instant.now());
-    }
-
     public static ChatMessageDto fromEntity(ChatMessage chatMessage) {
         return new ChatMessageDto(
                 chatMessage.getRoom().getId(),

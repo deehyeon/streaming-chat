@@ -11,6 +11,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 
@@ -18,6 +19,7 @@ import java.time.Instant;
 @Getter
 @Builder
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage {
     @Id
@@ -46,7 +48,7 @@ public class ChatMessage {
     private Long fileSize;    // 파일 크기
 
     @Column(nullable = false)
-    private Long seq;         // 메시지 정렬용 시퀀스 번호
+    private long seq;         // 메시지 정렬용 시퀀스 번호
 
     @CreatedDate
     @Column(name = "created_at", nullable = false)
@@ -89,11 +91,5 @@ public class ChatMessage {
                 .seq(seq)
                 .createdAt(Instant.now())
                 .build();
-    }
-
-    /** 시스템 메시지 생성 (예: 누가 입장했을 때) */
-    public static ChatMessage system(ChatRoom room, String content, long seq) {
-        ChatMessageDto systemMessage = ChatMessageDto.system(room, content);
-        return ChatMessage.create(systemMessage, seq, room, null);
     }
 }
