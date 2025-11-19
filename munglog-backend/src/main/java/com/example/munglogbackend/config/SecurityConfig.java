@@ -3,6 +3,7 @@ package com.example.munglogbackend.config;
 import com.example.munglogbackend.adapter.security.jwt.JwtAuthenticationFilter;
 import com.example.munglogbackend.adapter.security.oauth.CustomOAuth2UserService;
 import com.example.munglogbackend.adapter.security.oauth.OAuth2LoginSuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -32,14 +33,27 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable) // 로그인 form 비활성화 (우린 토큰 기반이니까)
                 .sessionManagement(configure -> configure.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // JWT 기반 인증이므로 세션을 아예 생성하지 않음
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            // OAuth2 자동 리다이렉트를 방지하고 401 에러 반환
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                    "{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                            );
+                        })
+                )
                 .authorizeHttpRequests(authorize ->
                         authorize
                                 .requestMatchers(HttpMethod.OPTIONS, "/v1/**", "/**").permitAll()
                                 .requestMatchers(
-                                        "/v1/auth/signup/**",
-                                        "/actuator/health/readiness",
-                                        "/actuator/health/liveness",
-                                        "/v1/auth/login"
+                                        "/connect/**",
+                                        "/publish/**"
+                                ).permitAll()
+                                .requestMatchers(
+                                        "/swagger-ui.html",
+                                        "/swagger-ui/**",
+                                        "/v1/api-docs/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/oauth2/**",
@@ -47,16 +61,20 @@ public class SecurityConfig {
                                         "/login-success"
                                 ).permitAll()
                                 .requestMatchers(
-                                        "/swagger-ui.html",
-                                        "/swagger-ui/**",
-                                        "/v1/api-docs/**"
+                                        "/v1/auth/signup/**",
+                                        "/actuator/health/readiness",
+                                        "/actuator/health/liveness",
+                                        "/v1/auth/login"
                                 ).permitAll()
                                 .anyRequest().authenticated()
-                ).oauth2Login(oauth -> oauth
+                )
+                // OAuth2 로그인은 명시적 경로로만 시작
+                .oauth2Login(oauth -> oauth
+                        .loginPage("/oauth2/authorization/google")  // 명시적 로그인 페이지 설정
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)     // 사용자 정보 받아서 처리 (Member 연동)
+                                .userService(customOAuth2UserService)
                         )
-                        .successHandler(oAuth2LoginSuccessHandler)             // JWT 발급 후 리다이렉트 or 응답
+                        .successHandler(oAuth2LoginSuccessHandler)
                 ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class MemberFinderService implements MemberFinder {
     private final MemberRepository memberRepository;
@@ -22,7 +22,7 @@ public class MemberFinderService implements MemberFinder {
     }
 
     @Override
-    public Member findByEmail(Email email) {
-        return memberRepository.findByEmail(email).orElseThrow(() -> new MemberException(MemberErrorType.MEMBER_NOT_FOUND));
+    public Member findByEmail(String email) {
+        return memberRepository.findByEmail(new Email(email)).orElseThrow(() -> new MemberException(MemberErrorType.MEMBER_NOT_FOUND));
     }
 }

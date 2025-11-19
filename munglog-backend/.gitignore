@@ -40,5 +40,8 @@ src/main/resources/application-swagger.yml
 src/main/resources/application-actuator.yml
 src/main/resources/application-local.yml
 src/main/resources/application-dev.yml
+.env
+.env.*
+
 
 

@@ -8,5 +8,5 @@ import com.example.munglogbackend.domain.member.Member;
  */
 public interface MemberFinder {
     Member findById(Long memberId);
-    Member findByEmail(Email email);
+    Member findByEmail(String email);
 }

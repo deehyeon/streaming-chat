@@ -1,7 +1,5 @@
 package com.example.munglogbackend.domain.member.dto;
 
-import com.example.munglogbackend.domain.global.vo.Email;
-import com.example.munglogbackend.domain.member.Member;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -30,7 +28,6 @@ public record MemberSignUpRequest(
         MemberRole role,
 
         @Schema(description = "주소 정보")
-        @NotNull(message = "주소는 필수 입력입니다.")
         AddressRequest address
 ) {
     public MemberSignUpRequest withHashedPassword(String hashedPassword) {
