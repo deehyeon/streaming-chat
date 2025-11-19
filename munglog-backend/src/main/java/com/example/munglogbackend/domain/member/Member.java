@@ -33,7 +33,6 @@ public class Member extends AbstractEntity {
     private MemberRole role;
 
     @Embedded
-    @Column(nullable = true)
     private Address address;
 
     private Member(String name, Email email, String hashedPassword, MemberRole role, Address address) {

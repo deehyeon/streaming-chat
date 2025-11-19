@@ -19,7 +19,6 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     public Map<Long, Long> findMaxSeqForRoomIds(Collection<Long> roomIds) {
         if (roomIds == null || roomIds.isEmpty()) {
             return Map.of();
@@ -36,6 +35,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
                 .from(chatMessage)
                 .where(chatMessage.room.id.in(roomIds))
                 .groupBy(chatMessage.room.id)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetch();
 
         // 기본값 0으로 채워두고 결과 덮어쓰기
