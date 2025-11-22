@@ -13,19 +13,47 @@ export default function Cloud({ position }) {
       <group ref={cloudRef} position={position}>
         <mesh>
           <sphereGeometry args={[0.5, 8, 8]} />
-          <meshStandardMaterial color="#FFFFFF" opacity={0.8} transparent />
+          <meshStandardMaterial
+  color="#ffffff"
+  emissive="#ffffff"
+  emissiveIntensity={0.3}
+  opacity={0.9}
+  transparent
+/>
+
         </mesh>
         <mesh position={[0.4, 0, 0]}>
           <sphereGeometry args={[0.4, 8, 8]} />
-          <meshStandardMaterial color="#FFFFFF" opacity={0.8} transparent />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.3}
+            opacity={0.9}
+            transparent
+          />
+
         </mesh>
         <mesh position={[-0.4, 0, 0]}>
           <sphereGeometry args={[0.4, 8, 8]} />
-          <meshStandardMaterial color="#FFFFFF" opacity={0.8} transparent />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.3}
+            opacity={0.9}
+            transparent
+          />
+
         </mesh>
         <mesh position={[0, 0.2, 0]}>
           <sphereGeometry args={[0.4, 8, 8]} />
-          <meshStandardMaterial color="#FFFFFF" opacity={0.8} transparent />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.3}
+            opacity={0.9}
+            transparent
+          />
+
         </mesh>
       </group>
     );

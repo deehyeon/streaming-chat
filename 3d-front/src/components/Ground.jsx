@@ -4,15 +4,15 @@ export default function Ground() {
     // 🌸 꽃 데이터 대량 생성
     const flowers = useMemo(() => {
       const temp = [];
-      // 반복 횟수를 늘려 꽃 개수 증가 (20 -> 300)
-      for (let i = 0; i < 100; i++) {
+      // 반복 횟수를 늘려 꽃 개수 증가
+      for (let i = 0; i < 600; i++) {
         const angle = Math.random() * Math.PI * 2;
         
         // 💡 Math.sqrt를 써야 바깥쪽까지 골고루 퍼집니다 (안 쓰면 중앙에 뭉침)
-        const radius = Math.sqrt(Math.random()) * 8; // 반지름 14까지 꽉 채우기
+        const radius = Math.sqrt(Math.random()) * 7; 
   
         // 집이 있는 중앙(반지름 4 이내)은 비워두기
-        if (radius < 4) continue; 
+        if (radius < 2) continue; 
   
         const x = Math.cos(angle) * radius;
         const z = Math.sin(angle) * radius;
