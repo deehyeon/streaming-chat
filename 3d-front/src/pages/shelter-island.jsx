@@ -9,6 +9,7 @@ import Isabelle from '../components/Isabelle';
 import Cloud from '../components/Cloud';
 import Fence from "../components/Fence";
 import ChatIcon from '../components/ChatIcon';
+import Footer from '../components/Footer';
 
 // 메인 씬
 function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) {
@@ -72,6 +73,7 @@ export default function ShelterIsland() {
   const [showModal, setShowModal] = useState(false);
   const [showIsabelleModal, setShowIsabelleModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: 실제 로그인 상태로 교체
+  const [currentPage, setCurrentPage] = useState('home'); // Footer 네비게이션용
   const navigate = useNavigate();
 
   // Dog 클릭 핸들러 - 페이지 이동
@@ -109,6 +111,36 @@ export default function ShelterIsland() {
     alert('마이페이지로 이동합니다!');
     setShowIsabelleModal(false);
     // navigate('/mypage');
+  };
+
+  // Footer 페이지 변경 핸들러
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    switch(page) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'shelters':
+        navigate('/shelters');
+        break;
+      case 'missing':
+        navigate('/missing');
+        break;
+      case 'adoption':
+        navigate('/adoption');
+        break;
+      case 'login':
+        navigate('/login');
+        break;
+      case 'signup':
+        navigate('/signup');
+        break;
+      case 'mypage':
+        navigate('/mypage');
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -225,9 +257,9 @@ export default function ShelterIsland() {
         left: '50%',
         transform: 'translateX(-50%)',
         background: 'rgba(255, 255, 255, 0.85)',
-        padding: '20px 30px',
+        padding: '10px 20px',
         borderRadius: '15px',
-        fontSize: '20px',
+        fontSize: '14px',
         color: '#666',
         backdropFilter: 'blur(5px)'
       }}>
@@ -464,6 +496,13 @@ export default function ShelterIsland() {
           }}
         />
       )}
+
+      {/* Footer 네비게이션 */}
+      <Footer 
+        currentPage={currentPage}
+        setCurrentPage={handlePageChange}
+        isLoggedIn={isLoggedIn}
+      />
 
       <style>{`
         @keyframes slideIn {
