@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import logo from './logo/돈이 캐릭터 2.svg';
 
 const colors = {
   primary: '#FFB701',
@@ -34,41 +35,32 @@ export default function Header({ userName, isLoggedIn }) {
           justifyContent: 'space-between',
         }}
       >
-        {/* 왼쪽: 로고 */}
+        {/* 로고 */}
         <div 
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            cursor: 'pointer',
-          }}
-          onClick={() => navigate('/')}
-        >
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px',
-            boxShadow: '0 2px 8px rgba(255, 183, 1, 0.3)',
-          }}>
-            🐕
-          </div>
-          <span style={{
-            fontSize: '20px',
-            fontWeight: 'bold',
-            background: `linear-gradient(to right, ${colors.primary}, ${colors.secondary})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}>
-            멍로그
-          </span>
-        </div>
+            className="flex flex-row items-center gap-3 cursor-pointer" 
+            style={{ display: 'flex', alignItems: 'center' }}  
+            onClick={() => setCurrentPage('home')}
+          >
+            <img 
+              src={logo} 
+              alt="멍로그 로고" 
+              style={{ width: 48, height: 48, flexShrink: 0 }} 
+            />
 
+            <h1
+              className="text-xl sm:text-2xl font-bold"
+              style={{
+                margin: 0,
+                background: `linear-gradient(to right, ${colors.primary}, ${colors.secondary})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                whiteSpace: 'nowrap',          // 텍스트 줄바꿈 방지
+              }}
+            >
+              멍로그
+            </h1>
+          </div>
         {/* 오른쪽: 회원 이름 또는 로그인 버튼 */}
         <div style={{
           display: 'flex',
