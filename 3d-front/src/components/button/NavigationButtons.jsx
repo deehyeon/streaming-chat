@@ -39,8 +39,8 @@ export default function NavigationButtons() {
     <div
       style={{
         position: 'fixed',
-        left: '450px',
-        top: '18%',
+        left: '200px',
+        top: '22%',
         transform: 'translateY(-50%)',
         display: 'flex',
         flexDirection: 'column',

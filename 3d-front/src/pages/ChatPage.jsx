@@ -105,8 +105,9 @@ function Scene({ focusMode, onScreenClick }) {
         <Dog
           position={[ 1.5, 0.1, 2.1 ]}
           color="#DEB887"
-          scale={[0.01, 0.01, 0.01]}
-          rotation={[0, -Math.PI / 6, 0]}
+          scale={[0.001, 0.001, 0.001]}
+          rotation={[0, -Math.PI / 4, 0]}
+          message={"컴퓨터를 눌러 채팅을 시작해보세요!"}
         />
       </Suspense>
     </>
@@ -206,15 +207,15 @@ function TopBanner({ visible }) {
       className="ui-banner ui-fade"
       style={{
         position: 'absolute',
-        top: '80px',
+        top: '100px',
         left: '50%',
         transform: 'translateX(-50%)',
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? 'auto' : 'none',
       }}
     >
-      <h1 style={{ margin: 0, fontSize: '20px' }}>💻 채팅방</h1>
-      <p style={{ margin: '6px 0 0', fontSize: '14px', lineHeight: '1.4' }}>
+      <h1 style={{ margin: 0, fontSize: '18px' }}>💻 채팅방</h1>
+      <p style={{ margin: '6px 0 0', fontSize: '16px', lineHeight: '1.4' }}>
         컴퓨터 앞에 오신 것을 환영합니다! <br />
         화면을 클릭해 채팅을 시작해보세요.
       </p>
@@ -254,6 +255,8 @@ function ChatOverlay({ visible }) {
         position: 'absolute',
         top: '50%',
         left: '50%',
+        transform: 'translate(-50%, -50%) scale(1.1)', // ← 🔥 크기 축소
+        transformOrigin: 'center center', 
         zIndex: 100,
       }}
     >

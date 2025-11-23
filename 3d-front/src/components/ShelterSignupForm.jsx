@@ -224,7 +224,7 @@ export default function ShelterSignupForm({
       <Html
         occlude
         position={[-3.8, 5.5, 0.2]}
-        distanceFactor={4}
+        distanceFactor={3}
         style={{
           width: '700px',
           pointerEvents: 'auto',

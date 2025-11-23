@@ -193,7 +193,7 @@ export default function VolunteerSignupForm({
       <Html
         occlude
         position={[-3.8, 5.8, 0.2]}
-        distanceFactor={4}
+        distanceFactor={3}
         style={{
           width: '700px',
           pointerEvents: 'auto',

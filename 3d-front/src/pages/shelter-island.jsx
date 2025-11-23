@@ -9,7 +9,6 @@ import Isabelle from '../components/Isabelle';
 import Cloud from '../components/Cloud';
 import Fence from "../components/Fence";
 import ChatIcon from '../components/ChatIcon';
-import Footer from '../components/Footer';
 
 // 메인 씬
 function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) {
@@ -62,7 +61,7 @@ function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) 
       />
 
       {/* 채팅 알람 아이콘*/}
-      <ChatIcon position={[1.5, 1.4, 1.5]} rotation={[0, 0, 0]} onClick={onChatClick}/>
+      <ChatIcon position={[1.5, 1.6, 1.5]} scale={0.1} rotation={[0, 0, 0]} onClick={onChatClick}/>
     </>
   );
 }
@@ -73,7 +72,6 @@ export default function ShelterIsland() {
   const [showModal, setShowModal] = useState(false);
   const [showIsabelleModal, setShowIsabelleModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: 실제 로그인 상태로 교체
-  const [currentPage, setCurrentPage] = useState('home'); // Footer 네비게이션용
   const navigate = useNavigate();
 
   // Dog 클릭 핸들러 - 페이지 이동
@@ -259,7 +257,7 @@ export default function ShelterIsland() {
         background: 'rgba(255, 255, 255, 0.85)',
         padding: '10px 20px',
         borderRadius: '15px',
-        fontSize: '14px',
+        fontSize: '16px',
         color: '#666',
         backdropFilter: 'blur(5px)'
       }}>
@@ -496,13 +494,6 @@ export default function ShelterIsland() {
           }}
         />
       )}
-
-      {/* Footer 네비게이션 */}
-      <Footer 
-        currentPage={currentPage}
-        setCurrentPage={handlePageChange}
-        isLoggedIn={isLoggedIn}
-      />
 
       <style>{`
         @keyframes slideIn {

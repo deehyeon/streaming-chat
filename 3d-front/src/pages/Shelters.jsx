@@ -8,7 +8,6 @@ import Fence from '../components/Fence';
 import Island from '../components/Island';
 import Cloud from '../components/Cloud';
 import NavigationButtons from '../components/button/NavigationButtons';
-import Header from '../components/Header';
 
 // 3D 씬
 function Scene() {
@@ -143,14 +142,11 @@ export default function SheltersPage() {
   return (
     <div style={{
       width: '100vw',
-      height: '100vh',
+      minHeight: '100vh',
       position: 'relative',
-      overflow: 'hidden',
+      overflow: 'visible',
       background: 'linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%)'
     }}>
-      {/* Header 컴포넌트 */}
-      <Header isLoggedIn={false} />
-
       {/* 3D 배경 */}
       <Canvas shadows style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}>
         <Suspense fallback={null}>
@@ -158,20 +154,48 @@ export default function SheltersPage() {
         </Suspense>
       </Canvas>
 
+      {/* 상단 로고 */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '30px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        zIndex: 10,
+        cursor: 'pointer',
+        pointerEvents: 'auto', // 클릭 가능하게
+      }}
+      onClick={() => navigate('/')}
+      >
+        <div style={{
+          fontSize: '40px',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+        }}>
+          🐕
+        </div>
+        <span style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          color: '#FF6B9D',
+          textShadow: '2px 2px 4px rgba(255,255,255,0.8)'
+        }}>
+          멍로그
+        </span>
+      </div>
+
       {/* 왼쪽 네비게이션 버튼 */}
-    <div style={{ position: 'absolute', top: '50%', left: '10000px', zIndex: 30 }}>
-    <NavigationButtons />
-    </div>
+      <NavigationButtons />
 
       {/* 콘텐츠 영역 */}
       <div style={{
         position: 'relative',
         zIndex: 1,
         width: '100%',
-        height: '100%',
-        overflowY: 'auto',
+        height: '100vh',
+        overflowY: 'scroll',
         padding: '100px 20px 80px',
-        pointerEvents: 'none', // 배경 조작을 위해 기본적으로 이벤트 차단 해제
+        pointerEvents: 'auto', // 배경 조작을 위해 기본적으로 이벤트 차단 해제
       }}>
         <div style={{
           maxWidth: '1000px',

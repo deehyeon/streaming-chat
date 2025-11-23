@@ -135,8 +135,8 @@ export default function SignupTypeSelectorForm({
       {/* HTML 콘텐츠 */}
       <Html
         occlude
-        position={[-3.8, 4, 0.2]}
-        distanceFactor={3.8}
+        position={[-3.8, 4.3, 0.2]}
+        distanceFactor={3}
         style={{
           width: '800px',
           pointerEvents: 'auto',

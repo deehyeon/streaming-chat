@@ -8,6 +8,7 @@ import Fence from '../components/Fence';
 import Island from '../components/Island';
 import Cloud from '../components/Cloud';
 import LoginForm from '../components/LoginForm';
+import Header from '../components/Header';
 
 // 3D 씬
 function Scene({ onLogin, onSocialLogin, onNavigateSignup }) {
@@ -103,34 +104,8 @@ export default function Login() {
         />
       </Canvas>
 
-      {/* 상단 로고 */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        left: '30px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        zIndex: 10,
-        cursor: 'pointer'
-      }}
-      onClick={() => navigate('/')}
-      >
-        <div style={{
-          fontSize: '40px',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
-        }}>
-          🐕
-        </div>
-        <span style={{
-          fontSize: '24px',
-          fontWeight: 'bold',
-          color: '#FF6B9D',
-          textShadow: '2px 2px 4px rgba(255,255,255,0.8)'
-        }}>
-          멍로그
-        </span>
-      </div>
+      {/* ✅ 공통 Header: 오른쪽 버튼은 감춤 */}
+      <Header isLoggedIn={false} showRight={false} />
 
       {/* 하단 저작권 */}
       <div style={{

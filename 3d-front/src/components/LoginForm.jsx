@@ -149,8 +149,8 @@ export default function LoginForm({
       {/* HTML 폼 오버레이 */}
       <Html
         occlude
-        position={[-3.5, 3, 0.2]}
-        distanceFactor={4}
+        position={[-3.4, 3, 0.2]}
+        distanceFactor={3}
         style={{
           width: '600px',
           pointerEvents: 'auto',
