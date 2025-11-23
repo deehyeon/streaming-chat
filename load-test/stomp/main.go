@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -22,6 +23,12 @@ type Stage struct {
 	workers  int
 	name     string
 	duration int
+}
+
+// 서버에서 채팅방 목록을 받을 때 사용할 구조체
+// 실제 응답 JSON에 맞게 필드/태그 수정 필요
+type ChatRoomIdResponse struct {
+	RoomID string `json:"roomId"`
 }
 
 // 스테이지 설정
@@ -35,8 +42,11 @@ var (
 
 // 전역 변수
 var (
-	token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiYXV0aCI6IlJPTEVfVVNFUiIsImV4cCI6MTczODYwMzIzN30.2BQZ2P8qooLUeuE6Nl1RyBMpdAoJFum5ChfFK5l_eaY"
-	url   = "118.36.152.40:13305"
+	token string
+	url   string
+
+	// 서버에서 가져온 채팅방 ID 목록
+	roomIDs []string
 
 	// 동시성 안전한 데이터 수집
 	resultsMutex             sync.Mutex
@@ -51,6 +61,19 @@ var (
 	successCount        atomic.Int64
 	activeConnections   atomic.Int64
 )
+
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Println(".env 파일이 없습니다. 시스템 환경변수를 사용합니다.")
+	}
+
+	token = os.Getenv("LOAD_TEST_TOKEN")
+	url = os.Getenv("LOAD_TEST_URL")
+
+	if token == "" || url == "" {
+		log.Fatal("LOAD_TEST_TOKEN 또는 LOAD_TEST_URL 이 설정되지 않았습니다.")
+	}
+}
 
 // Prometheus metrics HTTP server
 func startMetricsServer(port string) {
@@ -80,9 +103,54 @@ func connectWebSocket(id int) (*websocket.Conn, error) {
 	return conn, nil
 }
 
+// 서버에서 채팅방 ID 목록 가져오기
+func fetchRoomIDs() ([]string, error) {
+	// 예: http://118.36.152.40:13305/api/chat/rooms?limit=100
+	endpoint := fmt.Sprintf("http://%s/v1/chat/rooms", url)
+
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("요청 생성 실패: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("요청 전송 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("응답 코드 비정상: %d", resp.StatusCode)
+	}
+
+	var rooms []ChatRoomIdResponse
+	if err := json.NewDecoder(resp.Body).Decode(&rooms); err != nil {
+		return nil, fmt.Errorf("JSON 파싱 실패: %w", err)
+	}
+
+	ids := make([]string, 0, len(rooms))
+	for _, r := range rooms {
+		if r.RoomID != "" {
+			ids = append(ids, r.RoomID)
+		}
+	}
+
+	return ids, nil
+}
+
 func worker(id int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	isFinish := false
+
+	// 이 워커가 사용할 방 선택 (균등 분배: Round-Robin)
+	if len(roomIDs) == 0 {
+		log.Println("roomIDs 가 비어 있습니다. worker를 실행할 수 없습니다.")
+		errorCount.Add(1)
+		return
+	}
+	roomIndex := (id - 1) % len(roomIDs)
+	roomID := roomIDs[roomIndex]
 
 	// 활성 연결 수 증가
 	activeConnections.Add(1)
@@ -132,7 +200,12 @@ func worker(id int, wg *sync.WaitGroup) {
 	metrics.StompConnectTime.Observe(stompConnectTime)
 
 	// 구독 메시지 전송
-	subscribeFrame := "SUBSCRIBE\nid:sub-1\ndestination:/exchange/chat.exchange/chat.room.3e53eb09-7f4f-4e45-a31b-61ea8556d3b3\n\n\u0000"
+	subscribeDest := fmt.Sprintf("/exchange/chat.exchange/chat.room.%s", roomID)
+	subscribeFrame := fmt.Sprintf(
+		"SUBSCRIBE\nid:sub-%d\ndestination:%s\n\n\u0000",
+		id,
+		subscribeDest,
+	)
 	err = conn.WriteMessage(websocket.TextMessage, []byte(subscribeFrame))
 	if err != nil {
 		log.Printf("Worker %d 구독 실패: %v\n", id, err)
@@ -220,7 +293,12 @@ func worker(id int, wg *sync.WaitGroup) {
 	// 채팅 메시지 전송
 	currentTimeMs := time.Now().UnixNano()
 	message := fmt.Sprintf("Worker %d - %d", id, currentTimeMs)
-	sendFrame := fmt.Sprintf("SEND\ndestination:/pub/chat.message.3e53eb09-7f4f-4e45-a31b-61ea8556d3b3\n\n{\"message\":\"%s\"}\u0000", message)
+	sendDest := fmt.Sprintf("/pub/chat.message.%s", roomID)
+	sendFrame := fmt.Sprintf(
+		"SEND\ndestination:%s\n\n{\"message\":\"%s\"}\u0000",
+		sendDest,
+		message,
+	)
 
 	err = conn.WriteMessage(websocket.TextMessage, []byte(sendFrame))
 	if err != nil {
@@ -257,6 +335,16 @@ func main() {
 		log.SetOutput(logFile)
 		defer logFile.Close()
 	}
+
+	roomIDs, err = fetchRoomIDs()
+	if err != nil {
+		log.Fatalf("채팅방 목록 조회 실패: %v\n", err)
+	}
+	if len(roomIDs) == 0 {
+		log.Fatal("가져온 채팅방 ID가 없습니다. 부하테스트를 진행할 수 없습니다.")
+	}
+
+	log.Printf("불러온 채팅방 개수: %d\n", len(roomIDs))
 
 	var wg sync.WaitGroup
 	totalWorkers := 0
