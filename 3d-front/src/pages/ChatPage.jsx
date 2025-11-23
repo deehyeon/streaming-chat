@@ -12,6 +12,7 @@ import Dog from '../components/Dog';
 import Cloud from '../components/Cloud';
 import Cabin from '../components/Cabin';
 import MunglogChatLayout from '../components/chat/MunglogChatLayout';
+import Header from '../components/Header';
 
 
 /* ----------------- 🔧 카메라 컨트롤러 (Canvas 내부용) ----------------- */
@@ -198,28 +199,6 @@ function GlobalUIStyles() {
   );
 }
 
-/* ----------------- 🏠 홈 버튼 ----------------- */
-function HomeButton({ visible }) {
-  return (
-    <button
-      onClick={() => (window.location.href = '/')}
-      className="ui-button ui-button--home ui-fade"
-      style={{
-        position: 'absolute',
-        fontSize: '16px',
-        top: 30,
-        left: 30,
-        opacity: visible ? 1 : 0,
-        pointerEvents: visible ? 'auto' : 'none',
-        zIndex: 10,
-      }}
-    >
-      <span className="ui-button__icon">🏠</span>
-      <span>홈으로</span>
-    </button>
-  );
-}
-
 /* ----------------- 💬 상단 안내 배너 ----------------- */
 function TopBanner({ visible }) {
   return (
@@ -227,7 +206,7 @@ function TopBanner({ visible }) {
       className="ui-banner ui-fade"
       style={{
         position: 'absolute',
-        top: '2%',
+        top: '80px',
         left: '50%',
         transform: 'translateX(-50%)',
         opacity: visible ? 1 : 0,
@@ -252,11 +231,11 @@ function BackButton({ visible, onClick }) {
       style={{
         position: 'absolute',
         fontSize: '16px',
-        top: 30,
+        top: 90,
         left: 30,
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? 'auto' : 'none',
-        zIndex: 11, // 홈 버튼보다 위
+        zIndex: 11,
       }}
     >
       ← 뒤로가기
@@ -309,6 +288,9 @@ export default function ChatPage() {
     >
       <GlobalUIStyles />
 
+      {/* Header 컴포넌트 */}
+      <Header isLoggedIn={false} />
+
       <Canvas shadows camera={{ position: [0, 2, 5], fov: 50 }}>
         <Scene
           focusMode={focusMode}
@@ -317,7 +299,6 @@ export default function ChatPage() {
       </Canvas>
 
       {/* 오버레이 UI들 */}
-      <HomeButton visible={isDefaultView} />
       <TopBanner visible={isDefaultView} />
       <BackButton visible={focusMode} onClick={handleUnfocus} />
       
