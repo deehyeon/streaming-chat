@@ -9,6 +9,7 @@ import Isabelle from '../components/Isabelle';
 import Cloud from '../components/Cloud';
 import Fence from "../components/Fence";
 import ChatIcon from '../components/ChatIcon';
+import Footer from '../components/Footer';
 
 // 메인 씬
 function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) {
@@ -72,6 +73,7 @@ export default function ShelterIsland() {
   const [showModal, setShowModal] = useState(false);
   const [showIsabelleModal, setShowIsabelleModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: 실제 로그인 상태로 교체
+  const [currentPage, setCurrentPage] = useState('home'); // Footer 네비게이션용
   const navigate = useNavigate();
 
   const handleDogClick = (dogName) => {
@@ -109,6 +111,36 @@ export default function ShelterIsland() {
     alert('마이페이지로 이동합니다!');
     setShowIsabelleModal(false);
     // navigate('/mypage');
+  };
+
+  // Footer 페이지 변경 핸들러
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    switch(page) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'shelters':
+        navigate('/shelters');
+        break;
+      case 'missing':
+        navigate('/missing');
+        break;
+      case 'adoption':
+        navigate('/adoption');
+        break;
+      case 'login':
+        navigate('/login');
+        break;
+      case 'signup':
+        navigate('/signup');
+        break;
+      case 'mypage':
+        navigate('/mypage');
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -216,22 +248,6 @@ export default function ShelterIsland() {
             </div>
           </>
         )}
-      </div>
-
-      {/* 안내 텍스트 */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(255, 255, 255, 0.85)',
-        padding: '10px 20px',
-        borderRadius: '15px',
-        fontSize: '14px',
-        color: '#666',
-        backdropFilter: 'blur(5px)'
-      }}>
-        🖱️ 마우스로 드래그하여 둘러보세요 | 🔍 휠로 확대/축소
       </div>
 
       {/* 강아지 선택 모달 */}
@@ -464,6 +480,13 @@ export default function ShelterIsland() {
           }}
         />
       )}
+
+      {/* Footer 네비게이션 */}
+      <Footer 
+        currentPage={currentPage}
+        setCurrentPage={handlePageChange}
+        isLoggedIn={isLoggedIn}
+      />
 
       <style>{`
         @keyframes slideIn {
