@@ -1,0 +1,121 @@
+###############################################
+# Global OS / IDE / Logs
+###############################################
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+###############################################
+# Environment Variables
+###############################################
+.env
+.env.*
+*/.env
+*/.env.*
+
+###############################################
+# Node / Frontend (React, Vite, 3d-front)
+###############################################
+node_modules/
+dist/
+build/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+###############################################
+# Java / Spring Boot (munglog-backend)
+###############################################
+
+HELP.md
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# IntelliJ output
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+###############################################
+# Spring Boot Sensitive Config Files
+###############################################
+**/src/main/resources/application*.yml
+
+###############################################
+# Go (load-test)
+###############################################
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go tests
+*.test
+
+# Go workspace
+go.work
+
+# Go output files
+*.out
+*.csv
+
+###############################################
+# Docker / Container
+###############################################
+*.pid
+*.pid.lock
+*.seed
+
+###############################################
+# Monitoring (Prometheus / Grafana)
+###############################################
+monitoring/data/
+monitoring/grafana-data/
+monitoring/prometheus-data/
+
+###############################################
+# Images
+###############################################
+images/*.DS_Store
