@@ -151,8 +151,8 @@ export default function MunglogChatLayout() {
     >
       <div
         style={{
-          width: '900px',
-          height: '550px',
+          width: '920px',
+          height: '690px',
           background: '#ffffff',
           borderRadius: '16px',
           boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',

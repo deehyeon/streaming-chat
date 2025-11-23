@@ -1,14 +1,12 @@
 // src/components/Computer.jsx
 import React, { useRef, useState } from 'react';
-import { Html, useGLTF } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-import MunglogChatLayout from './chat/MunglogChatLayout';
-
-export default function Computer({ onScreenClick, ...props }) {
+export default function Computer({ onScreenClick, focusMode, ...props }) {
   const { scene } = useGLTF('/computer.glb');
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const screenRef = useRef();
   const [isVisible, setIsVisible] = useState(true);
 
@@ -31,38 +29,31 @@ export default function Computer({ onScreenClick, ...props }) {
     setIsVisible(dot > 0);
   });
 
+  // 클릭 가능한 영역 (보이지 않는 평면)
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (onScreenClick && !focusMode) {
+      onScreenClick();
+    }
+  };
+
   return (
     <group {...props}>
       {/* 3D 컴퓨터 모델 */}
       <primitive object={scene} />
 
-      {/* 모니터 평면 위치 */}
+      {/* 클릭 감지용 보이지 않는 평면 */}
       <group
         ref={screenRef}
-        position={[0, 1.355, 0.4]}
-        scale={[0.5, 0.54, 0.44]}
+        position={[0, 1.3, 0.4]}
       >
-        <Html
-          transform
-          distanceFactor={1}
-          rotation={[0, 0, 0]}
-          style={{
-            display: isVisible ? 'block' : 'none',
-            pointerEvents: isVisible ? 'auto' : 'none',
-          }}
+        <mesh
+          onClick={handleClick}
+          visible={false}
         >
-          {/* 이 div 전체가 모니터 화면 */}
-          <div
-            style={{
-              width: '800px',   // 기준 캔버스 크기 (Html에서만 사용)
-              height: '480px',
-            }}
-            onClick={onScreenClick}
-          >
-            {/* 모니터 안에 맞게 쓰는 embedded 모드 */}
-            <MunglogChatLayout embedded />
-          </div>
-        </Html>
+          <planeGeometry args={[1.8, 1.1]} />
+          <meshBasicMaterial transparent opacity={1} />
+        </mesh>
       </group>
     </group>
   );

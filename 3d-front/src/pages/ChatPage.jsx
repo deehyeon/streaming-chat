@@ -1,5 +1,5 @@
 // src/pages/ChatPage.jsx
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,6 +11,7 @@ import Rock from '../components/Rock';
 import Dog from '../components/Dog';
 import Cloud from '../components/Cloud';
 import Cabin from '../components/Cabin';
+import MunglogChatLayout from '../components/chat/MunglogChatLayout';
 
 
 /* ----------------- 🔧 카메라 컨트롤러 (Canvas 내부용) ----------------- */
@@ -19,11 +20,11 @@ function CameraController({ focusMode }) {
 
   useFrame(() => {
     const targetPos = focusMode
-      ? new THREE.Vector3(0, 1.3, 3.5) // 포커스(줌인) 위치
+      ? new THREE.Vector3(0, 1, 3.5) // 포커스(줌인) 위치
       : new THREE.Vector3(0, 1, 5);    // 기본 카메라 위치
 
     camera.position.lerp(targetPos, 0.08);
-    const lookAtY = focusMode ? 1.2 : 1;
+    const lookAtY = focusMode ? 1 : 1;
     camera.lookAt(0, lookAtY, 0.3);
 
     if (controls) {
@@ -71,9 +72,9 @@ function Scene({ focusMode, onScreenClick }) {
 
       {/* 3D 오브젝트들 */}
       <Suspense fallback={null}>
-        {/* 메인 컴퓨터 + 채팅 화면 */}
+        {/* 메인 컴퓨터 (채팅 화면 제거, 클릭만 감지) */}
         <Computer
-          position={[0, 0.2, 2]}
+          position={[0, 0, 2]}
           scale={[1, 1, 1]}
           onScreenClick={onScreenClick}
           focusMode={focusMode}
@@ -170,6 +171,29 @@ function GlobalUIStyles() {
         text-align: center;
         max-width: 80%;
       }
+
+      /* 채팅 오버레이 애니메이션 */
+      .chat-overlay {
+        transform: translate(-50%, -50%) scale(0.9);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .chat-overlay--visible {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.4);
+        pointer-events: auto;
+        transition: opacity 2.2s ease, transform 1.5s ease;
+      }
+
+      .chat-overlay--hidden {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+        pointer-events: none;
+        transition: opacity 0.5s ease-in, transform 0s ease-in;
+      }
+
+
     `}</style>
   );
 }
@@ -182,8 +206,9 @@ function HomeButton({ visible }) {
       className="ui-button ui-button--home ui-fade"
       style={{
         position: 'absolute',
-        top: 20,
-        left: 20,
+        fontSize: '16px',
+        top: 30,
+        left: 30,
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? 'auto' : 'none',
         zIndex: 10,
@@ -226,8 +251,9 @@ function BackButton({ visible, onClick }) {
       className="ui-button ui-button--back ui-fade"
       style={{
         position: 'absolute',
-        top: 20,
-        left: 20,
+        fontSize: '16px',
+        top: 30,
+        left: 30,
         opacity: visible ? 1 : 0,
         pointerEvents: visible ? 'auto' : 'none',
         zIndex: 11, // 홈 버튼보다 위
@@ -235,6 +261,25 @@ function BackButton({ visible, onClick }) {
     >
       ← 뒤로가기
     </button>
+  );
+}
+
+/* ----------------- 💬 채팅 오버레이 (2D, 항상 고정 위치) ----------------- */
+function ChatOverlay({ visible }) {
+  return (
+    <div
+      className={`chat-overlay ${
+        visible ? 'chat-overlay--visible' : 'chat-overlay--hidden'
+      }`}
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        zIndex: 100,
+      }}
+    >
+      <MunglogChatLayout />
+    </div>
   );
 }
 
@@ -275,6 +320,9 @@ export default function ChatPage() {
       <HomeButton visible={isDefaultView} />
       <TopBanner visible={isDefaultView} />
       <BackButton visible={focusMode} onClick={handleUnfocus} />
+      
+      {/* 채팅 화면 (2D 오버레이, 항상 화면 중앙 고정) */}
+      <ChatOverlay visible={focusMode} />
     </div>
   );
 }

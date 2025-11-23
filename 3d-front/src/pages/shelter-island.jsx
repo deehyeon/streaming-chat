@@ -46,10 +46,10 @@ function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) 
       <Cloud position={[2, 3.5, 0]} />
       
       {/* 강아지들 */}
-      <Dog position={[-2, 0, 2]} color="#DEB887" onClick={() => onDogClick('베이지')} message="회원가입/로그인 🐶" />
-      <Dog position={[2, 0, 2]} color="#F4A460" onClick={() => onDogClick('샌디')} message="마이페이지 🐶"/>
-      <Dog position={[-1, 0, 3]} color="#FFFFFF" onClick={() => onDogClick('스노우')} message="보호소 둘러보기 🐶"/>
-      <Dog position={[1, 0, 3]} color="#8B4513" onClick={() => onDogClick('브라운')} message="게시판 🐶"/>
+      <Dog position={[-2, 0, 2]} color="#DEB887" onClick={() => onDogClick('/login')} message="회원가입/로그인 🐶" />
+      <Dog position={[2, 0, 2]} color="#F4A460" onClick={() => onDogClick('/mypage')} message="마이페이지 🐶"/>
+      <Dog position={[-1, 0, 3]} color="#FFFFFF" onClick={() => onDogClick('/shelters')} message="보호소 둘러보기 🐶"/>
+      <Dog position={[1, 0, 3]} color="#8B4513" onClick={() => onDogClick('/board')} message="게시판 🐶"/>
 
       {/* 👇 여울이(Isabelle) 추가! */}
       <Isabelle 
@@ -74,9 +74,9 @@ export default function ShelterIsland() {
   const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: 실제 로그인 상태로 교체
   const navigate = useNavigate();
 
-  const handleDogClick = (dogName) => {
-    setSelectedDog(dogName);
-    setShowModal(true);
+  // Dog 클릭 핸들러 - 페이지 이동
+  const handleDogClick = (path) => {
+    navigate(path);
   };
 
   const handleVolunteer = () => {
@@ -94,14 +94,14 @@ export default function ShelterIsland() {
     // TODO: 실제 로그인 페이지로 이동
     alert('로그인 페이지로 이동합니다!');
     setShowIsabelleModal(false);
-    // navigate('/login');
+    navigate('/login');
   };
 
   const handleSignup = () => {
     // TODO: 실제 회원가입 페이지로 이동
     alert('회원가입 페이지로 이동합니다!');
     setShowIsabelleModal(false);
-    // navigate('/signup');
+    navigate('/signup');
   };
 
   // 마이페이지 이동
@@ -206,7 +206,7 @@ export default function ShelterIsland() {
             {/* 로그아웃 상태 */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: '12px',
+                fontSize: '16px',
                 color: '#666',
                 lineHeight: '1.4'
               }}>
@@ -225,9 +225,9 @@ export default function ShelterIsland() {
         left: '50%',
         transform: 'translateX(-50%)',
         background: 'rgba(255, 255, 255, 0.85)',
-        padding: '10px 20px',
+        padding: '20px 30px',
         borderRadius: '15px',
-        fontSize: '14px',
+        fontSize: '20px',
         color: '#666',
         backdropFilter: 'blur(5px)'
       }}>
