@@ -89,26 +89,10 @@ export default function ShelterIsland() {
     setShowIsabelleModal(true);
   };
 
-  // 로그인/회원가입 버튼 클릭
-  const handleLogin = () => {
-    // TODO: 실제 로그인 페이지로 이동
-    alert('로그인 페이지로 이동합니다!');
+  // 멍로그 마을로 이동
+  const handleGoToVillage = () => {
     setShowIsabelleModal(false);
-    navigate('/login');
-  };
-
-  const handleSignup = () => {
-    // TODO: 실제 회원가입 페이지로 이동
-    alert('회원가입 페이지로 이동합니다!');
-    setShowIsabelleModal(false);
-    navigate('/signup');
-  };
-
-  // 마이페이지 이동
-  const handleGoToMyPage = () => {
-    alert('마이페이지로 이동합니다!');
-    setShowIsabelleModal(false);
-    // navigate('/mypage');
+    navigate('/');
   };
 
   // Footer 페이지 변경 핸들러
@@ -325,7 +309,7 @@ export default function ShelterIsland() {
         </div>
       )}
 
-      {/* 이사벨 클릭 모달 */}
+      {/* 이사벨 클릭 모달 - 멍로그 마을로 이동 확인 */}
       {showIsabelleModal && (
         <div style={{
           position: 'absolute',
@@ -342,137 +326,60 @@ export default function ShelterIsland() {
           animation: 'slideIn 0.3s ease-out',
           border: '3px solid #FFB6C1'
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>🎵</div>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>🏘️</div>
           <h2 style={{ color: '#FF6B9D', marginTop: '0', marginBottom: '15px' }}>
-            {isLoggedIn ? '안녕하세요!' : '환영합니다!'}
+            멍로그 마을로 이동하시겠습니까?
           </h2>
           
-          {isLoggedIn ? (
-            <>
-              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '25px' }}>
-                마이페이지에서 내 정보를<br/>
-                확인하고 관리하실 수 있어요!
-              </p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button
-                  onClick={handleGoToMyPage}
-                  style={{
-                    background: 'linear-gradient(135deg, #FFB6C1 0%, #FF6B9D 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    transition: 'all 0.3s',
-                    boxShadow: '0 4px 12px rgba(255, 107, 157, 0.3)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 16px rgba(255, 107, 157, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(255, 107, 157, 0.3)';
-                  }}
-                >
-                  마이페이지로 이동
-                </button>
-                <button
-                  onClick={() => setShowIsabelleModal(false)}
-                  style={{
-                    background: '#E0E0E0',
-                    color: '#666',
-                    border: 'none',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => e.target.style.background = '#BDBDBD'}
-                  onMouseLeave={(e) => e.target.style.background = '#E0E0E0'}
-                >
-                  닫기
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '25px' }}>
-                멍로그 아일랜드에 오신 것을 환영합니다!<br/>
-                로그인하고 더 많은 기능을 사용해보세요 🐶
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  onClick={handleLogin}
-                  style={{
-                    background: 'linear-gradient(135deg, #FFB6C1 0%, #FF6B9D 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    transition: 'all 0.3s',
-                    boxShadow: '0 4px 12px rgba(255, 107, 157, 0.3)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 6px 16px rgba(255, 107, 157, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(255, 107, 157, 0.3)';
-                  }}
-                >
-                  로그인
-                </button>
-                <button
-                  onClick={handleSignup}
-                  style={{
-                    background: 'white',
-                    color: '#FF6B9D',
-                    border: '2px solid #FFB6C1',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#FFF0F5';
-                    e.target.style.borderColor = '#FF6B9D';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#FFB6C1';
-                  }}
-                >
-                  회원가입
-                </button>
-                <button
-                  onClick={() => setShowIsabelleModal(false)}
-                  style={{
-                    background: 'transparent',
-                    color: '#999',
-                    border: 'none',
-                    padding: '10px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    marginTop: '5px'
-                  }}
-                  onMouseEnter={(e) => e.target.style.color = '#666'}
-                  onMouseLeave={(e) => e.target.style.color = '#999'}
-                >
-                  나중에 하기
-                </button>
-              </div>
-            </>
-          )}
+          <p style={{ color: '#666', lineHeight: '1.6', marginBottom: '25px' }}>
+            멍로그 마을에서 더 많은 친구들을<br/>
+            만나보세요! 🐶🐕🐩
+          </p>
+          
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={handleGoToVillage}
+              style={{
+                background: 'linear-gradient(135deg, #FFB6C1 0%, #FF6B9D 100%)',
+                color: 'white',
+                border: 'none',
+                padding: '14px 28px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                transition: 'all 0.3s',
+                boxShadow: '0 4px 12px rgba(255, 107, 157, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 16px rgba(255, 107, 157, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(255, 107, 157, 0.3)';
+              }}
+            >
+              이동하기
+            </button>
+            <button
+              onClick={() => setShowIsabelleModal(false)}
+              style={{
+                background: '#E0E0E0',
+                color: '#666',
+                border: 'none',
+                padding: '14px 28px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#BDBDBD'}
+              onMouseLeave={(e) => e.target.style.background = '#E0E0E0'}
+            >
+              취소
+            </button>
+          </div>
         </div>
       )}
 
