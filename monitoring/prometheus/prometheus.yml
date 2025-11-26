@@ -34,7 +34,7 @@ scrape_configs:
       - targets: ['host.docker.internal:8080']
     metrics_path: '/actuator/prometheus'
 
-  Mac/Windows에서 host.docker.internal이 작동하지 않으면 아래 주석 해제
-  - job_name: 'stomp-load-test'
-    static_configs:
-      - targets: ['172.17.0.1:2112']  # Linux의 경우
+  # Mac/Windows에서 host.docker.internal이 작동하지 않으면 아래 주석 해제
+  # - job_name: 'stomp-load-test'
+  #   static_configs:
+  #     - targets: ['172.17.0.1:2112']  # Linux의 경우
