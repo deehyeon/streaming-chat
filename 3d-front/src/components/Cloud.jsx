@@ -14,12 +14,12 @@ export default function Cloud({ position }) {
         <mesh>
           <sphereGeometry args={[0.5, 8, 8]} />
           <meshStandardMaterial
-  color="#ffffff"
-  emissive="#ffffff"
-  emissiveIntensity={0.3}
-  opacity={0.9}
-  transparent
-/>
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.3}
+            opacity={0.9}
+            transparent
+          />
 
         </mesh>
         <mesh position={[0.4, 0, 0]}>

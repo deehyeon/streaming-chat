@@ -1,11 +1,7 @@
 ###############################################
 # Global OS / IDE / Logs
 ###############################################
-
-# macOS
 .DS_Store
-
-# Windows
 Thumbs.db
 
 # Logs
@@ -30,51 +26,50 @@ Thumbs.db
 */.env.*
 
 ###############################################
-# Node / Frontend (React, Vite, 3d-front)
+# 3d-front (React / Vite 등)
 ###############################################
-node_modules/
-dist/
-build/
-.cache/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+3d-front/node_modules/
+3d-front/dist/
+3d-front/build/
+3d-front/.cache/
+3d-front/npm-debug.log*
+3d-front/yarn-debug.log*
+3d-front/yarn-error.log*
 
 ###############################################
-# Java / Spring Boot (munglog-backend)
+# munglog-frontend (React)
 ###############################################
+munglog-frontend/node_modules/
+munglog-frontend/dist/
+munglog-frontend/build/
+munglog-frontend/.cache/
+munglog-frontend/npm-debug.log*
+munglog-frontend/yarn-debug.log*
+munglog-frontend/yarn-error.log*
 
-HELP.md
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+###############################################
+# munglog-backend (Spring Boot / Gradle)
+###############################################
+munglog-backend/.gradle/
+munglog-backend/build/
+munglog-backend/out/
+munglog-backend/HELP.md
 
-# STS
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings/
-.springBeans
-.sts4-cache
+# STS / Eclipse 관련 (혹시 쓸 경우 대비)
+munglog-backend/.apt_generated
+munglog-backend/.classpath
+munglog-backend/.factorypath
+munglog-backend/.project
+munglog-backend/.settings/
+munglog-backend/.springBeans
+munglog-backend/.sts4-cache
 
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-# IntelliJ output
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-# NetBeans
-nbproject/private/
-nbbuild/
-dist/
-nbdist/
-.nb-gradle/
+# NetBeans (거의 안 쓰겠지만 방어용)
+munglog-backend/nbproject/private/
+munglog-backend/nbbuild/
+munglog-backend/dist/
+munglog-backend/nbdist/
+munglog-backend/.nb-gradle/
 
 ###############################################
 # Spring Boot Sensitive Config Files
@@ -84,22 +79,15 @@ nbdist/
 ###############################################
 # Go (load-test)
 ###############################################
-# Go binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Go tests
-*.test
-
-# Go workspace
-go.work
-
-# Go output files
-*.out
-*.csv
+load-test/stomp/*.exe
+load-test/stomp/*.exe~
+load-test/stomp/*.dll
+load-test/stomp/*.so
+load-test/stomp/*.dylib
+load-test/stomp/*.test
+load-test/stomp/go.work
+load-test/stomp/*.out
+load-test/stomp/*.csv
 
 ###############################################
 # Docker / Container
@@ -110,6 +98,7 @@ go.work
 
 ###############################################
 # Monitoring (Prometheus / Grafana)
+# (데이터 볼륨만 제외, 설정 파일은 커밋)
 ###############################################
 monitoring/data/
 monitoring/grafana-data/

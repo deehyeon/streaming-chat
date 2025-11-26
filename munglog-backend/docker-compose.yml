@@ -22,3 +22,4 @@ services:
 networks:
   munglog_network:
     driver: bridge
+    name: munglog_network

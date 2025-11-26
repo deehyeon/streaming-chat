@@ -1,14 +1,38 @@
+# monitoring/prometheus/prometheus.yml
 global:
-  scrape_interval: 5s
-  evaluation_interval: 5s
+  scrape_interval: 15s
 
 scrape_configs:
+  # Prometheus 자체
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Node (시스템)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Go 부하테스트 도구 (실행 시에만)
   - job_name: 'stomp-load-test'
     static_configs:
       - targets: ['host.docker.internal:2112']
-        labels:
-          app: 'stomp-load-test'
-          environment: 'test'
+
+  # Spring Boot (아직 설정 안 됨)
+  - job_name: 'spring-boot'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    metrics_path: '/actuator/prometheus'
 
   # Mac/Windows에서 host.docker.internal이 작동하지 않으면 아래 주석 해제
   # - job_name: 'stomp-load-test'
