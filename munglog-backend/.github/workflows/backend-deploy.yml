@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - 'munglog-backend/**'
       - '.github/workflows/backend-deploy.yml'
@@ -53,12 +54,12 @@ jobs:
           echo "${{ secrets.APPLICATION_YML }}" > src/main/resources/application.yml
 
       - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
         working-directory: ./munglog-backend
+        run: chmod +x ./gradlew
 
       - name: Build with Gradle
-        run: ./gradlew clean build -x test --parallel --no-daemon
         working-directory: ./munglog-backend
+        run: ./gradlew clean build -x test --parallel --no-daemon
 
       # PR인 경우 여기서 종료 (빌드만)
       - name: Build Summary (PR only)
@@ -71,7 +72,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ Docker image not pushed (PR mode)" >> $GITHUB_STEP_SUMMARY
 
-      # Push인 경우에만 Docker 이미지 빌드 및 푸시
+      # ↓↓↓ push일 때만 이미지 빌드 & 푸시 ↓↓↓
+
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
         uses: docker/login-action@v3
@@ -86,27 +88,35 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "tag=prod" >> $GITHUB_OUTPUT
-            echo "latest=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
             echo "tag=staging" >> $GITHUB_OUTPUT
-            echo "latest=false" >> $GITHUB_OUTPUT
           else
             echo "Error: Unsupported branch for deployment"
             exit 1
           fi
 
-      - name: Build and push Docker image
-        if: github.event_name == 'push'
-        working-directory: ./munglog-backend
-        run: |
-          docker build -f Dockerfile -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }}
-          
-          # latest 태그도 푸시 (main 브랜치인 경우)
-          if [ "${{ steps.image-tag.outputs.latest }}" == "true" ]; then
-            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          fi
+      # main 브랜치 (prod + latest)
+      - name: Build and push Docker image (main → prod, latest)
+        if: github.event_name == 'push' && steps.image-tag.outputs.tag == 'prod'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./munglog-backend
+          file: ./munglog-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      # develop 브랜치 (staging)
+      - name: Build and push Docker image (develop → staging)
+        if: github.event_name == 'push' && steps.image-tag.outputs.tag == 'staging'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./munglog-backend
+          file: ./munglog-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
 
       - name: Image Summary
         if: github.event_name == 'push'
@@ -123,7 +133,7 @@ jobs:
     name: Blue-Green Deployment
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
 
     steps:
       # 현재 어느 서버가 운영 중인지 확인
@@ -147,8 +157,6 @@ jobs:
             echo "target_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
             echo "target_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
             echo "current_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
-            echo "target_ssh_key=GREEN_SERVER_SSH_KEY" >> $GITHUB_OUTPUT
-            echo "target_user=GREEN_SERVER_USER" >> $GITHUB_OUTPUT
           # Green이 운영 중이면 Blue에 배포
           elif [ "$GREEN_STATUS" = "200" ]; then
             echo "current=green" >> $GITHUB_OUTPUT
@@ -157,8 +165,6 @@ jobs:
             echo "target_ip=${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_OUTPUT
             echo "target_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
             echo "current_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
-            echo "target_ssh_key=BLUE_SERVER_SSH_KEY" >> $GITHUB_OUTPUT
-            echo "target_user=BLUE_SERVER_USER" >> $GITHUB_OUTPUT
           # 둘 다 다운이면 Green에 배포 (기본값)
           else
             echo "Notice: No active server detected. Deploying to Green."
@@ -166,10 +172,8 @@ jobs:
             echo "target=green" >> $GITHUB_OUTPUT
             echo "current_ip=none" >> $GITHUB_OUTPUT
             echo "target_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
-            echo "target_private_ip=10.0.1.166" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
             echo "current_private_ip=none" >> $GITHUB_OUTPUT
-            echo "target_ssh_key=GREEN_SERVER_SSH_KEY" >> $GITHUB_OUTPUT
-            echo "target_user=GREEN_SERVER_USER" >> $GITHUB_OUTPUT
           fi
 
       - name: Deployment Info
@@ -250,7 +254,6 @@ jobs:
           echo "**Server IP:** ${{ steps.target.outputs.target_ip }}" >> $GITHUB_STEP_SUMMARY
           echo "**Health check:** Passed ✅" >> $GITHUB_STEP_SUMMARY
 
-      # Load Balancer 트래픽 전환 안내
       - name: Traffic Switch Instructions
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -263,11 +266,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.target.outputs.target }}" == "green" ]; then
-            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅"
-            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" 
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
           else
-            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅"
-            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" 
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -283,7 +286,6 @@ jobs:
           echo "curl http://${{ secrets.LOAD_BALANCER_IP }}/actuator/health" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-      # 선택사항: Slack 알림 등
       - name: Send notification
         if: always()
         run: |

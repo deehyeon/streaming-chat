@@ -3,14 +3,16 @@ FROM gradle:8.5-jdk17-alpine AS build
 WORKDIR /app
 
 # Copy gradle files
-COPY build.gradle.kts settings.gradle.kts ./
+COPY gradlew ./
 COPY gradle ./gradle
+COPY build.gradle ./
+COPY settings.gradle ./
 
 # Copy source code
 COPY src ./src
 
 # Build
-RUN gradle clean build -x test --no-daemon
+RUN ./gradlew clean build -x test --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-alpine
