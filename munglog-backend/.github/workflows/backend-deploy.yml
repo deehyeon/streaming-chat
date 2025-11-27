@@ -272,7 +272,7 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "4. Monitor for 5-10 minutes" >> $GITHUB_STEP_SUMMARY
-          echo "5. Check Load Balancer: http://168.107.47.211/actuator/health" >> $GITHUB_STEP_SUMMARY
+          echo "5. Check Load Balancer: http://${{ secrets.LOAD_BALANCER_IP }}/actuator/health" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### Test Commands:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
@@ -280,7 +280,7 @@ jobs:
           echo "curl http://${{ steps.target.outputs.target_ip }}/actuator/health" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Test Load Balancer (after traffic switch)" >> $GITHUB_STEP_SUMMARY
-          echo "curl http://168.107.47.211/actuator/health" >> $GITHUB_STEP_SUMMARY
+          echo "curl http://${{ secrets.LOAD_BALANCER_IP }}/actuator/health" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       # 선택사항: Slack 알림 등
