@@ -1,4 +1,3 @@
-
 name: Backend Blue-Green CI/CD
 
 on:
@@ -79,7 +78,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Determine image tag
         if: github.event_name == 'push'
@@ -91,6 +90,9 @@ jobs:
           elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
             echo "tag=staging" >> $GITHUB_OUTPUT
             echo "latest=false" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Unsupported branch for deployment"
+            exit 1
           fi
 
       - name: Build and push Docker image
@@ -143,8 +145,8 @@ jobs:
             echo "target=green" >> $GITHUB_OUTPUT
             echo "current_ip=${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_OUTPUT
             echo "target_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
-            echo "target_private_ip=10.0.1.166" >> $GITHUB_OUTPUT
-            echo "current_private_ip=10.0.1.79" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+            echo "current_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
             echo "target_ssh_key=GREEN_SERVER_SSH_KEY" >> $GITHUB_OUTPUT
             echo "target_user=GREEN_SERVER_USER" >> $GITHUB_OUTPUT
           # Green이 운영 중이면 Blue에 배포
@@ -153,8 +155,8 @@ jobs:
             echo "target=blue" >> $GITHUB_OUTPUT
             echo "current_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
             echo "target_ip=${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_OUTPUT
-            echo "target_private_ip=10.0.1.79" >> $GITHUB_OUTPUT
-            echo "current_private_ip=10.0.1.166" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+            echo "current_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
             echo "target_ssh_key=BLUE_SERVER_SSH_KEY" >> $GITHUB_OUTPUT
             echo "target_user=BLUE_SERVER_USER" >> $GITHUB_OUTPUT
           # 둘 다 다운이면 Green에 배포 (기본값)
@@ -218,7 +220,7 @@ jobs:
             chmod 600 .env
             
             echo "=== Logging in to GitHub Container Registry ==="
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             echo "=== Pulling latest image ==="
             docker compose pull app
@@ -261,11 +263,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.target.outputs.target }}" == "green" ]; then
-            echo "   - **Green (10.0.1.166:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
-            echo "   - **Blue (10.0.1.79:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅"
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" 
           else
-            echo "   - **Blue (10.0.1.79:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
-            echo "   - **Green (10.0.1.166:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅"
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" 
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
