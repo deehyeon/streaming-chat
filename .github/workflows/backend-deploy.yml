@@ -80,7 +80,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Determine image tag
         if: github.event_name == 'push'
@@ -224,7 +224,7 @@ jobs:
             chmod 600 .env
             
             echo "=== Logging in to GitHub Container Registry ==="
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             echo "=== Pulling latest image ==="
             docker compose pull app
