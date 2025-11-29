@@ -24,7 +24,7 @@ public class MemberModifierService implements MemberSaver {
 
     @Override
     public Long restore(Long memberId) {
-        Member m = memberFinder.findActiveById(memberId);
+        Member m = memberFinder.findDeletedById(memberId);
         m.restore();
         return m.getId();
     }

@@ -6,6 +6,7 @@ import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +29,7 @@ public class MemberController {
         - 경로 파라미터로 전달된 `memberId`에 해당하는 회원을 논리 삭제합니다.
         """
     )
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{memberId}")
     public ApiResponse<?> softDelete(@PathVariable Long memberId) {
         memberSaver.softDelete(memberId);

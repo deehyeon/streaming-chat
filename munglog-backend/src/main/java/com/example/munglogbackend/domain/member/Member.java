@@ -19,7 +19,6 @@ import org.hibernate.annotations.Where;
 @Getter
 @Builder
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
-@Where(clause = "is_deleted = false")
 public class Member extends AbstractEntity {
     @Column(nullable = false, length = 30)
     private String name;
