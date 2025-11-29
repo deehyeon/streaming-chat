@@ -24,4 +24,16 @@ public class BaseEntity {
 
     @Column(name = "is_deleted", length = 1, nullable = false)
     private Boolean isDeleted = false;
+
+    protected void markDeleted() {
+        this.isDeleted = true;
+    }
+
+    protected void unmarkDeleted() {
+        this.isDeleted = false;
+    }
+
+    public boolean isDeleted() {
+        return Boolean.TRUE.equals(this.isDeleted);
+    }
 }

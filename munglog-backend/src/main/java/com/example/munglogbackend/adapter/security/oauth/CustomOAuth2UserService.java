@@ -1,8 +1,7 @@
 package com.example.munglogbackend.adapter.security.oauth;
 
 import com.example.munglogbackend.application.member.provided.Auth;
-import com.example.munglogbackend.application.member.required.MemberRepository;
-import com.example.munglogbackend.domain.global.vo.Email;
+import com.example.munglogbackend.application.member.provided.MemberFinder;
 import com.example.munglogbackend.domain.member.dto.GoogleUserInfoDto;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
     private final Auth auth;
-    private final MemberRepository memberRepository;
+    private final MemberFinder memberFinder;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -48,7 +47,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             throw new OAuth2AuthenticationException("Invalid role parameter: " + roleParam);
         }
 
-        if (memberRepository.findByEmail(new Email(email)).isEmpty()) {
+        if (memberFinder.findActiveByEmail(email) == null) {
             auth.createMemberByGoogle(new GoogleUserInfoDto(name, email), role);
         }
 
