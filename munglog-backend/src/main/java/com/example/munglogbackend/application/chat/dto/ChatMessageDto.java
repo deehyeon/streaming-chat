@@ -1,7 +1,6 @@
-package com.example.munglogbackend.domain.chat.dto;
+package com.example.munglogbackend.application.chat.dto;
 
 import com.example.munglogbackend.domain.chat.entity.ChatMessage;
-import com.example.munglogbackend.domain.chat.entity.ChatRoom;
 import com.example.munglogbackend.domain.chat.enumerate.MessageType;
 
 import java.time.Instant;

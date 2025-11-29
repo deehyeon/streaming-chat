@@ -1,6 +1,6 @@
 package com.example.munglogbackend.domain.chat.entity;
 
-import com.example.munglogbackend.domain.chat.dto.ChatMessageDto;
+import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.domain.chat.enumerate.MessageType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
