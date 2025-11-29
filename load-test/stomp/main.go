@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,12 +9,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"stomp-load-test/metrics"
 	"stomp-load-test/reports"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,16 +30,42 @@ type Stage struct {
 	duration int // 초 단위: 워커들이 연결을 유지하는 시간
 }
 
-// 채팅방 ID 응답 DTO
-type ChatRoomIdResponse struct {
-	RoomID int64 `json:"roomId"`
+// 로그인 요청 DTO
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
-// ApiResponse<List<ChatRoomIdResponse>> 래퍼
-type ChatRoomListApiResponse struct {
-	Result string               `json:"result"`
-	Data   []ChatRoomIdResponse `json:"data"`
-	Error  interface{}          `json:"error"`
+// 토큰 정보
+type TokenInfo struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}
+
+// 멤버 정보
+type MemberInfo struct {
+	MemberId   int64  `json:"memberId"`
+	MemberName string `json:"memberName"`
+	MemberRole string `json:"memberRole"`
+}
+
+// 로그인 응답 데이터
+type LoginResponseData struct {
+	TokenInfo  TokenInfo  `json:"tokenInfo"`
+	MemberInfo MemberInfo `json:"memberInfo"`
+}
+
+// API 응답 래퍼
+type ApiResponse struct {
+	Result string          `json:"result"`
+	Data   json.RawMessage `json:"data"`
+	Error  interface{}     `json:"error"`
+}
+
+// 단체 채팅방 생성 요청 DTO
+type CreateGroupChatRoomRequest struct {
+	Name      string  `json:"name"`
+	MemberIds []int64 `json:"memberIds"`
 }
 
 // 메시지 수신 구조체
@@ -65,6 +94,11 @@ var (
 	roomID          int64
 	messageInterval time.Duration // 메시지 전송 간격
 
+	// HTTP 클라이언트 (타임아웃 설정)
+	httpClient = &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
 	// 동시성 안전한 데이터 수집
 	resultsMutex             sync.Mutex
 	webSocketConnectTimeList []float64
@@ -80,6 +114,10 @@ var (
 
 	// pending messages: 워커별로 보낸 메시지들의 nonce와 전송시간을 추적
 	pendingMessages sync.Map // key: "workerID-nonce", value: time.Time
+
+	// graceful shutdown을 위한 context
+	mainCtx    context.Context
+	mainCancel context.CancelFunc
 )
 
 // Prometheus metrics HTTP server
@@ -93,14 +131,128 @@ func startMetricsServer(port string) {
 	}()
 }
 
-// ChatController가 ApiResponse<List<ChatRoomIdResponse>>를 반환한다고 가정하고
-// 첫 번째 방의 roomId를 가져오는 함수
+// 자동 로그인 함수
+func autoLogin(email, password string) (string, int64, error) {
+	if url == "" {
+		return "", 0, fmt.Errorf("SERVER_URL이 비어 있습니다")
+	}
+
+	endpoint := "http://" + url + "/api/v1/auth/login"
+
+	loginReq := LoginRequest{
+		Email:    email,
+		Password: password,
+	}
+
+	jsonData, err := json.Marshal(loginReq)
+	if err != nil {
+		return "", 0, fmt.Errorf("로그인 요청 JSON 생성 실패: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", 0, fmt.Errorf("로그인 요청 생성 실패: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", 0, fmt.Errorf("로그인 API 호출 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return "", 0, fmt.Errorf("로그인 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
+	}
+
+	var apiResp ApiResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return "", 0, fmt.Errorf("로그인 응답 JSON 파싱 실패: %w", err)
+	}
+
+	if apiResp.Result != "SUCCESS" {
+		return "", 0, fmt.Errorf("로그인 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
+	}
+
+	// Data를 LoginResponseData로 변환
+	var loginResp LoginResponseData
+	if err := json.Unmarshal(apiResp.Data, &loginResp); err != nil {
+		return "", 0, fmt.Errorf("로그인 응답 데이터 파싱 실패: %w", err)
+	}
+
+	if loginResp.TokenInfo.AccessToken == "" {
+		return "", 0, fmt.Errorf("로그인 성공했으나 accessToken이 비어 있습니다")
+	}
+
+	return loginResp.TokenInfo.AccessToken, loginResp.MemberInfo.MemberId, nil
+}
+
+// 단체 채팅방 생성 함수
+func createGroupChatRoom(roomName string, memberIds []int64) (int64, error) {
+	if token == "" || url == "" {
+		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
+	}
+
+	endpoint := "http://" + url + "/api/v1/chat/rooms/group"
+
+	createReq := CreateGroupChatRoomRequest{
+		Name:      roomName,
+		MemberIds: memberIds,
+	}
+
+	jsonData, err := json.Marshal(createReq)
+	if err != nil {
+		return 0, fmt.Errorf("채팅방 생성 요청 JSON 생성 실패: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return 0, fmt.Errorf("채팅방 생성 요청 생성 실패: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("채팅방 생성 API 호출 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return 0, fmt.Errorf("채팅방 생성 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
+	}
+
+	var apiResp ApiResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return 0, fmt.Errorf("채팅방 생성 응답 JSON 파싱 실패: %w", err)
+	}
+
+	if apiResp.Result != "SUCCESS" {
+		return 0, fmt.Errorf("채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
+	}
+
+	// Data를 int64로 변환 (roomId)
+	var roomId int64
+	if err := json.Unmarshal(apiResp.Data, &roomId); err != nil {
+		return 0, fmt.Errorf("채팅방 ID 파싱 실패: %w", err)
+	}
+
+	return roomId, nil
+}
+
+// 채팅방 목록 조회 (기존 함수 - 필요시 사용)
 func fetchRoomIDFromAPI() (int64, error) {
 	if token == "" || url == "" {
 		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
 	}
 
-	endpoint := "http://" + url + "/api/v1/chat/rooms"
+	endpoint := "http://" + url + "/api/v1/chat/rooms/me"
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -110,7 +262,7 @@ func fetchRoomIDFromAPI() (int64, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("채팅방 목록 API 호출 실패: %w", err)
 	}
@@ -121,8 +273,10 @@ func fetchRoomIDFromAPI() (int64, error) {
 		return 0, fmt.Errorf("예상치 못한 상태 코드 %d: %s", resp.StatusCode, string(body))
 	}
 
-	var apiResp ChatRoomListApiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+	body, _ := io.ReadAll(resp.Body)
+
+	var apiResp ApiResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return 0, fmt.Errorf("채팅방 목록 응답 JSON 파싱 실패: %w", err)
 	}
 
@@ -130,11 +284,40 @@ func fetchRoomIDFromAPI() (int64, error) {
 		return 0, fmt.Errorf("API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	if len(apiResp.Data) == 0 {
+	// Data를 []int64 배열로 파싱 (roomId 리스트)
+	var roomIds []int64
+	if err := json.Unmarshal(apiResp.Data, &roomIds); err != nil {
+		return 0, fmt.Errorf("채팅방 목록 데이터 파싱 실패: %w", err)
+	}
+
+	if len(roomIds) == 0 {
 		return 0, fmt.Errorf("서버에서 반환한 채팅방이 없습니다")
 	}
 
-	return apiResp.Data[0].RoomID, nil
+	return roomIds[0], nil
+}
+
+// pending 메시지 타임아웃 정리 고루틴
+func cleanupPendingMessages(ctx context.Context, timeout time.Duration) {
+	ticker := time.NewTicker(timeout / 2) // 타임아웃의 절반마다 체크
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			pendingMessages.Range(func(key, value interface{}) bool {
+				sentTime := value.(time.Time)
+				if now.Sub(sentTime) > timeout {
+					pendingMessages.Delete(key)
+					// 타임아웃 메시지는 로그만 남기고 에러 카운트하지 않음 (정상적인 상황일 수 있음)
+				}
+				return true
+			})
+		}
+	}
 }
 
 func init() {
@@ -144,15 +327,10 @@ func init() {
 	}
 
 	// 환경변수 읽기
-	token = os.Getenv("TOKEN")
 	url = os.Getenv("SERVER_URL")
-	roomIDStr := os.Getenv("ROOM_ID")
 	messageIntervalStr := os.Getenv("MESSAGE_INTERVAL_MS")
 
-	// 값 검증
-	if token == "" {
-		log.Fatal("환경 변수 TOKEN 값이 비어 있습니다.")
-	}
+	// SERVER_URL 필수 검증
 	if url == "" {
 		log.Fatal("환경 변수 SERVER_URL 값이 비어 있습니다.")
 	}
@@ -165,22 +343,84 @@ func init() {
 		}
 	}
 
-	// ROOM_ID가 있으면 그대로 사용, 없으면 API에서 조회
+	// 인증 처리 (우선순위: TOKEN > EMAIL/PASSWORD)
+	token = os.Getenv("TOKEN")
+	var myMemberId int64
+
+	if token == "" {
+		email := os.Getenv("EMAIL")
+		password := os.Getenv("PASSWORD")
+
+		if email != "" && password != "" {
+			log.Println("TOKEN 미설정 → EMAIL/PASSWORD로 자동 로그인 시도")
+			accessToken, memberId, err := autoLogin(email, password)
+			if err != nil {
+				log.Fatalf("자동 로그인 실패: %v", err)
+			}
+			token = accessToken
+			myMemberId = memberId
+			log.Printf("✓ 자동 로그인 성공 (memberId=%d)\n", memberId)
+		} else {
+			log.Fatal("환경 변수 TOKEN 또는 (EMAIL + PASSWORD)가 필요합니다.")
+		}
+	}
+
+	// ROOM_ID 처리 (우선순위: ROOM_ID > 새로운 단체방 생성 > 기존 방 조회)
+	roomIDStr := os.Getenv("ROOM_ID")
 	if roomIDStr != "" {
 		parsedRoomID, err := strconv.ParseInt(roomIDStr, 10, 64)
 		if err != nil {
 			log.Fatalf("ROOM_ID 파싱 실패: %v", err)
 		}
 		roomID = parsedRoomID
-		log.Println("환경 변수 ROOM_ID 사용")
+		log.Println("✓ 환경 변수 ROOM_ID 사용")
 	} else {
-		log.Println("ROOM_ID 미설정 → 채팅방 목록 API에서 roomId 조회 시도")
-		fetchedRoomID, err := fetchRoomIDFromAPI()
-		if err != nil {
-			log.Fatalf("API를 통한 ROOM_ID 조회 실패: %v", err)
+		createNewRoom := os.Getenv("CREATE_NEW_ROOM")
+		if createNewRoom == "true" {
+			log.Println("ROOM_ID 미설정 + CREATE_NEW_ROOM=true → 새 단체 채팅방 생성 시도")
+			roomName := os.Getenv("ROOM_NAME")
+			if roomName == "" {
+				roomName = fmt.Sprintf("Load Test Room %s", time.Now().Format("2006-01-02 15:04:05"))
+			}
+
+			// 멤버 ID 목록 파싱
+			memberIdsStr := os.Getenv("MEMBER_IDS")
+			var memberIds []int64
+
+			if memberIdsStr != "" {
+				// 쉼표로 구분된 멤버 ID 파싱
+				idStrs := strings.Split(memberIdsStr, ",")
+				for _, idStr := range idStrs {
+					idStr = strings.TrimSpace(idStr)
+					if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+						memberIds = append(memberIds, id)
+					}
+				}
+			}
+
+			// 멤버 ID가 없으면 자기 자신만 추가
+			if len(memberIds) == 0 && myMemberId > 0 {
+				memberIds = []int64{myMemberId}
+				log.Printf("멤버 ID 미설정 → 자기 자신만 포함 (memberId=%d)\n", myMemberId)
+			} else if len(memberIds) == 0 {
+				log.Fatal("채팅방 생성에 필요한 멤버 ID를 찾을 수 없습니다. MEMBER_IDS 환경변수를 설정하거나 자동 로그인을 사용하세요.")
+			}
+
+			fetchedRoomID, err := createGroupChatRoom(roomName, memberIds)
+			if err != nil {
+				log.Fatalf("단체 채팅방 생성 실패: %v", err)
+			}
+			roomID = fetchedRoomID
+			log.Printf("✓ 새 단체 채팅방 생성 완료 (ROOM_ID=%d, NAME=%s, MEMBERS=%v)\n", roomID, roomName, memberIds)
+		} else {
+			log.Println("ROOM_ID 미설정 → 채팅방 목록 API에서 첫 번째 방 조회 시도")
+			fetchedRoomID, err := fetchRoomIDFromAPI()
+			if err != nil {
+				log.Fatalf("API를 통한 ROOM_ID 조회 실패: %v", err)
+			}
+			roomID = fetchedRoomID
+			log.Printf("✓ 기존 채팅방 조회 완료 (ROOM_ID=%d)\n", roomID)
 		}
-		roomID = fetchedRoomID
-		log.Printf("API로부터 ROOM_ID=%d 조회 완료\n", roomID)
 	}
 
 	log.Println("환경 변수 로드 완료")
@@ -448,6 +688,22 @@ func worker(id int, wg *sync.WaitGroup, ctx context.Context) {
 }
 
 func main() {
+	// graceful shutdown을 위한 context 설정
+	mainCtx, mainCancel = context.WithCancel(context.Background())
+	defer mainCancel()
+
+	// 시그널 핸들링
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Printf("\n\033[1;33m종료 신호 수신, graceful shutdown 시작...\033[0m\n")
+		mainCancel()
+	}()
+
+	// pending 메시지 타임아웃 정리 고루틴 시작 (30초 타임아웃)
+	go cleanupPendingMessages(mainCtx, 30*time.Second)
+
 	// Prometheus 메트릭 서버 시작
 	startMetricsServer("2112")
 
@@ -471,6 +727,14 @@ func main() {
 	testStartTime := time.Now()
 
 	for stageIdx, stage := range stages {
+		// 메인 context가 취소되었는지 확인
+		select {
+		case <-mainCtx.Done():
+			fmt.Printf("\033[1;33m테스트 중단됨\033[0m\n")
+			goto END_TEST
+		default:
+		}
+
 		stageDuration := time.Duration(stage.duration) * time.Second
 		rampUpDuration := 10 * time.Second // 10초 동안 워커들을 점진적으로 생성
 		if stageDuration < rampUpDuration {
@@ -493,15 +757,23 @@ func main() {
 			stageIdx+1, stage.name, stage.workers, stage.duration)
 
 		// 이 스테이지의 context 생성
-		ctx, cancel := context.WithTimeout(context.Background(), stageDuration)
+		stageCtx, stageCancel := context.WithTimeout(mainCtx, stageDuration)
 
 		var wg sync.WaitGroup
 		stageStartTime := time.Now()
 
 		// 워커 생성 (ramp-up)
 		for i := 0; i < stage.workers; i++ {
+			// 메인 context 체크
+			select {
+			case <-mainCtx.Done():
+				stageCancel()
+				goto WAIT_WORKERS
+			default:
+			}
+
 			wg.Add(1)
-			go worker(stageIdx*100000+i+1, &wg, ctx) // 고유한 worker ID
+			go worker(stageIdx*100000+i+1, &wg, stageCtx) // 고유한 worker ID
 
 			// ramp-up 동안만 interval 적용
 			if time.Since(stageStartTime) < rampUpDuration {
@@ -537,7 +809,7 @@ func main() {
 		go func() {
 			for {
 				select {
-				case <-ctx.Done():
+				case <-stageCtx.Done():
 					monitorTicker.Stop()
 					return
 				case <-monitorTicker.C:
@@ -554,9 +826,10 @@ func main() {
 		}()
 
 		// 스테이지 종료까지 대기
-		<-ctx.Done()
-		cancel()
+		<-stageCtx.Done()
+		stageCancel()
 
+	WAIT_WORKERS:
 		// 모든 워커 종료 대기
 		fmt.Printf("\033[90m  워커 종료 대기 중...\033[0m\n")
 		wg.Wait()
@@ -571,6 +844,7 @@ func main() {
 		}
 	}
 
+END_TEST:
 	testDuration := time.Since(testStartTime)
 
 	// 총 워커 수 계산
@@ -596,7 +870,12 @@ func main() {
 	fmt.Printf("\n\033[1;36m테스트 완료! 결과가 'load_test_result.csv' 파일에 저장되었습니다.\033[0m\n")
 	fmt.Printf("\033[1;36mPrometheus 메트릭은 계속 http://localhost:2112/metrics 에서 확인 가능합니다.\033[0m\n\n")
 
-	// 프로그램 종료 방지 (메트릭 서버 유지)
-	fmt.Printf("\033[90m메트릭 서버를 종료하려면 Ctrl+C를 누르세요...\033[0m\n")
-	select {}
+	// 메트릭 서버 유지 (10초간 대기 후 종료)
+	fmt.Printf("\033[90m메트릭 확인을 위해 10초간 대기합니다... (Ctrl+C로 즉시 종료 가능)\033[0m\n")
+	select {
+	case <-time.After(10 * time.Second):
+		fmt.Printf("\033[1;32m정상 종료\033[0m\n")
+	case <-mainCtx.Done():
+		fmt.Printf("\033[1;33m종료됨\033[0m\n")
+	}
 }
