@@ -1,197 +1,204 @@
-# STOMP Load Test - 10,000 동시 접속 부하테스트
+# STOMP 채팅 부하 테스트 도구
 
-Go로 작성된 WebSocket/STOMP 프로토콜 부하 테스트 도구입니다.
+10,000명의 동시 접속을 시뮬레이션하여 STOMP 기반 채팅 서버의 성능을 측정하는 도구입니다.
 
 ## 주요 기능
 
-- ✅ **10,000명 동시 접속 지원** - 스테이지 기반으로 점진적 부하 증가
-- ✅ **장기간 연결 유지** - 각 워커가 스테이지 duration 동안 연결 유지
-- ✅ **정확한 메시지 식별** - 워커별 고유 키로 자기 메시지만 추적
-- ✅ STOMP 프로토콜 완벽 지원
-- ✅ JWT 인증 통합
-- ✅ 실시간 Prometheus 메트릭
-- ✅ CSV 리포트 생성
+### ✨ 자동화 기능
+- **자동 로그인**: 이메일/비밀번호로 JWT 토큰 자동 획득
+- **자동 채팅방 관리**: 새 채팅방 생성 또는 기존 방 자동 선택
+- **Graceful Shutdown**: Ctrl+C로 안전한 종료
+- **메모리 관리**: 타임아웃된 메시지 자동 정리
 
-## 빠른 시작
+### 📊 모니터링
+- **실시간 메트릭**: Prometheus 메트릭 서버 (포트 2112)
+- **상세 리포트**: CSV 형식의 테스트 결과
+- **진행 상황 출력**: 실시간 워커 생성 및 메시지 전송 현황
 
-### 1. 환경 변수 설정
+### 🔍 측정 지표
+- WebSocket 연결 시간
+- STOMP 연결 시간
+- 메시지 왕복 지연시간 (RTT)
+- 성공/실패율
+- 활성 연결 수
 
-```bash
-cp .env.example .env
-# .env 파일 편집
-```
+## 설치 및 실행
 
-```env
-TOKEN=your_jwt_token
-SERVER_URL=localhost:8080
-ROOM_ID=1
-MESSAGE_INTERVAL_MS=1000
-```
-
-### 2. 의존성 설치
-
+### 1. 의존성 설치
 ```bash
 go mod download
 ```
 
-### 3. 클라이언트 환경 설정 (10,000 연결 시 필수)
+### 2. 환경 변수 설정
 
-```bash
-# Linux: open file limit 증가
-ulimit -n 65535
+`.env` 파일을 생성하고 다음 중 하나의 방식으로 설정:
 
-# macOS: 동일
-ulimit -n 65535
+#### 방법 1: 토큰 직접 입력 (빠른 테스트)
+```env
+SERVER_URL=localhost:8080
+TOKEN=your_jwt_token_here
+ROOM_ID=1
 ```
 
-### 4. 모니터링 시작 (선택사항)
-
-```bash
-cd ../../monitoring
-docker-compose up -d
+#### 방법 2: 자동 로그인 + 기존 방 사용 (권장)
+```env
+SERVER_URL=localhost:8080
+EMAIL=test@example.com
+PASSWORD=your_password
+# ROOM_ID 생략 시 첫 번째 채팅방 자동 선택
 ```
 
-- Grafana: http://localhost:3000 (admin/admin)
-- Prometheus: http://localhost:9090
+#### 방법 3: 자동 로그인 + 새 채팅방 생성
+```env
+SERVER_URL=localhost:8080
+EMAIL=test@example.com
+PASSWORD=your_password
+CREATE_NEW_ROOM=true
+ROOM_NAME=Load Test Room
+```
 
-### 5. 부하 테스트 실행
-
+### 3. 실행
 ```bash
 go run main.go
 ```
 
-## 스테이지 구성
+또는 빌드 후 실행:
+```bash
+go build -o stomp-load-test
+./stomp-load-test
+```
 
-기본 스테이지 설정 (main.go에서 수정 가능):
+## 환경 변수 상세
 
-| Stage | 이름 | 워커 수 | 유지 시간 |
-|-------|------|---------|----------|
-| 1 | 워밍업 | 500 | 60초 |
-| 2 | 초기 부하 | 2,000 | 90초 |
-| 3 | 중간 부하 | 5,000 | 120초 |
-| 4 | 피크 부하 | 10,000 | 180초 |
-| 5 | 부하 감소 | 5,000 | 60초 |
-| 6 | 쿨다운 | 1,000 | 60초 |
-
-각 스테이지에서:
-- 워커들이 ramp-up 기간(10초) 동안 점진적으로 생성됨
-- 스테이지 duration 동안 연결을 유지하며 주기적으로 메시지 전송
-- Grafana에서 안정적인 "동시 접속 N명" 곡선 확인 가능
-
-## 동작 방식
-
-### 이전 버전과의 차이점
-
-| 항목 | 이전 | 현재 |
+### 필수 설정
+| 변수 | 설명 | 예시 |
 |------|------|------|
-| 워커 동작 | 메시지 1회 전송 후 즉시 종료 | 스테이지 종료까지 연결 유지 |
-| 메시지 식별 | senderId만 확인 | 고유 키(workerID-nonce) 사용 |
-| 동시 접속 | 불안정 | 안정적 유지 |
-| 메시지 전송 | 1회만 | 주기적 반복 (기본 1초) |
+| `SERVER_URL` | 서버 주소 (프로토콜 제외) | `localhost:8080` |
 
-### 메시지 식별 방식
+### 인증 설정 (택1)
+| 변수 | 설명 | 예시 |
+|------|------|------|
+| `TOKEN` | JWT 토큰 직접 입력 | `eyJhbGciOiJIUzI1...` |
+| `EMAIL` + `PASSWORD` | 자동 로그인용 계정 정보 | `test@example.com` |
 
+### 채팅방 설정 (선택)
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `ROOM_ID` | 채팅방 ID 직접 지정 | 자동 선택 |
+| `CREATE_NEW_ROOM` | 새 채팅방 생성 여부 | `false` |
+| `ROOM_NAME` | 생성할 채팅방 이름 | `Load Test Room {timestamp}` |
+
+### 테스트 설정 (선택)
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `MESSAGE_INTERVAL_MS` | 메시지 전송 간격 (ms) | `1000` |
+
+## 사용 예시
+
+### 시나리오 1: 처음 사용하는 경우
+```env
+SERVER_URL=localhost:8080
+EMAIL=test@example.com
+PASSWORD=testpass123
+CREATE_NEW_ROOM=true
 ```
-[W12345-N1] Test message from worker 12345
+
+실행 시:
+1. ✓ 자동 로그인 성공
+2. ✓ 새 채팅방 생성 완료 (ROOM_ID=123, NAME=Load Test Room 2024-01-15 10:30:00)
+3. 부하 테스트 시작...
+
+### 시나리오 2: 기존 계정으로 빠른 테스트
+```env
+SERVER_URL=production.example.com:8080
+EMAIL=loadtest@example.com
+PASSWORD=secure_password
 ```
 
-- `W12345`: Worker ID
-- `N1`: 해당 워커의 메시지 순번 (nonce)
-- 브로드캐스트로 받은 메시지 중 자기 것만 latency 계산
+실행 시:
+1. ✓ 자동 로그인 성공
+2. ✓ 기존 채팅방 조회 완료 (ROOM_ID=456)
+3. 부하 테스트 시작...
 
-## 환경 변수
+### 시나리오 3: 반복 테스트 (토큰 재사용)
+```env
+SERVER_URL=localhost:8080
+TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ROOM_ID=789
+```
 
-| 변수 | 필수 | 기본값 | 설명 |
-|------|------|--------|------|
-| TOKEN | ✅ | - | JWT 인증 토큰 |
-| SERVER_URL | ✅ | - | 서버 주소 (예: localhost:8080) |
-| ROOM_ID | ❌ | API 조회 | 테스트할 채팅방 ID |
-| MESSAGE_INTERVAL_MS | ❌ | 1000 | 메시지 전송 간격(ms) |
+## 스테이지 설정
 
-## Prometheus 메트릭
+`main.go`의 `stages` 변수를 수정하여 테스트 시나리오 변경:
 
-| 메트릭 | 타입 | 설명 |
-|--------|------|------|
-| stomp_load_test_active_connections | Gauge | 현재 활성 연결 수 |
-| stomp_load_test_messages_sent_total | Counter | 전송된 메시지 총 수 |
-| stomp_load_test_messages_received_total | Counter | 수신된 메시지 총 수 |
-| stomp_load_test_errors_total | Counter | 오류 총 수 |
-| stomp_load_test_message_latency_ms | Histogram | 메시지 왕복 지연 시간 |
-| stomp_load_test_websocket_connect_ms | Histogram | WebSocket 연결 시간 |
-| stomp_load_test_stomp_connect_ms | Histogram | STOMP 연결 시간 |
-| stomp_load_test_current_stage | Gauge | 현재 스테이지 번호 |
+```go
+var stages = []Stage{
+    {1000, "워밍업", 60},           // 1,000명, 60초
+    {5000, "중간 부하", 300},       // 5,000명, 300초
+    {10000, "최대 부하", 600},      // 10,000명, 600초
+}
+```
 
-## 서버 측 체크리스트
+## 모니터링
 
-10,000 동시 접속을 위해 서버에서도 튜닝이 필요합니다:
-
-### Linux 서버
-
+### Prometheus 메트릭
 ```bash
-# /etc/security/limits.conf
-* soft nofile 65535
-* hard nofile 65535
-
-# /etc/sysctl.conf
-net.core.somaxconn = 65535
-net.ipv4.tcp_max_syn_backlog = 65535
+curl http://localhost:2112/metrics
 ```
 
-### Spring Boot
+주요 메트릭:
+- `websocket_connect_time`: WebSocket 연결 시간 (ms)
+- `stomp_connect_time`: STOMP 연결 시간 (ms)
+- `message_latency`: 메시지 왕복 지연시간 (ms)
+- `active_connections`: 현재 활성 연결 수
+- `messages_sent_total`: 전송된 메시지 총 수
+- `messages_received_total`: 수신된 메시지 총 수
 
-```yaml
-# application.yml
-server:
-  tomcat:
-    max-connections: 15000
-    accept-count: 5000
-    threads:
-      max: 500
+### Grafana 대시보드
+
+Prometheus 데이터 소스 추가 후 메트릭 시각화 가능
+
+## 테스트 결과
+
+테스트 완료 후 `load_test_result.csv` 파일이 생성됩니다:
+
+```csv
+Metric,Value
+Total Workers,10000
+Total Test Duration,900.5s
+...
 ```
 
-### Netty (WebSocket)
+## 개선 사항
 
-```java
-// Netty worker threads
-NettyChannelOption.of(ChannelOption.SO_BACKLOG, 10000);
-```
+### v2.0 (현재 버전)
+- ✅ 자동 로그인 기능
+- ✅ 채팅방 자동 생성/선택
+- ✅ Graceful shutdown
+- ✅ Pending 메시지 타임아웃 정리
+- ✅ 향상된 에러 핸들링
 
-## 트러블슈팅
+### v1.0
+- ✅ 기본 부하 테스트
+- ✅ Prometheus 메트릭
+- ✅ CSV 리포트
 
-### "too many open files" 오류
+## 문제 해결
 
-```bash
-ulimit -n 65535
-```
+### "자동 로그인 실패"
+- 이메일/비밀번호 확인
+- 서버 URL 확인 (프로토콜 제외)
+- 로그인 API 엔드포인트 확인 (`/api/v1/auth/login`)
 
-### 클라이언트 CPU 과부하
+### "채팅방 조회/생성 실패"
+- 토큰 유효성 확인
+- API 엔드포인트 확인 (`/api/v1/chat/rooms`)
+- 권한 확인
 
-- MESSAGE_INTERVAL_MS 값을 늘려 메시지 전송 빈도 감소
-- 로그 레벨을 ERROR로 제한
+### "WebSocket 연결 실패"
+- 서버 WebSocket 엔드포인트 확인 (`/ws-stomp`)
+- 방화벽/포트 설정 확인
 
-### 서버 연결 거부
+## 라이선스
 
-- 서버의 max-connections 설정 확인
-- WebSocket idle timeout 확인 (heart-beat: 10000,10000 사용 중)
-
-## 리포트
-
-테스트 완료 후 생성되는 파일:
-
-- `load_test.log`: 상세 로그
-- `load_test_result.csv`: 통계 데이터
-
-## 아키텍처
-
-```
-main.go
-├── worker()          # 개별 클라이언트 시뮬레이션
-├── readLoop()        # 메시지 수신 고루틴
-├── metrics/          # Prometheus 메트릭
-└── reports/          # CSV 리포트 생성
-```
-
-## 참고 자료
-
-- [Monitoring Guide](../../monitoring/MONITORING.md)
-- [Project README](../../README.md)
+MIT
