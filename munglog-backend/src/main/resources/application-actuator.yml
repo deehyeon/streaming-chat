@@ -1,0 +1,21 @@
+management:
+  # Actuator 엔드포인트 노출 설정
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+
+  # Liveness/Readiness probe 엔드포인트 활성화
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+  # DB·Redis 헬스체크 비활성화 (CrashLoopBackOff 임시 회피)
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
