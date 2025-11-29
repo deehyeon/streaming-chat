@@ -3,32 +3,63 @@ package com.example.munglogbackend.adapter.chat;
 import com.example.munglogbackend.adapter.security.AuthDetails;
 import com.example.munglogbackend.application.chat.provided.ChatFinder;
 import com.example.munglogbackend.application.chat.provided.ChatSaver;
-import com.example.munglogbackend.domain.chat.dto.ChatMessageDto;
-import com.example.munglogbackend.domain.chat.dto.ChatRoomSummary;
+import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
+import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Slice;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/v1/chat")
 @RequiredArgsConstructor
+@Validated
+@Tag(name = "CHAT", description = "채팅 API")
 public class ChatController {
     private final ChatSaver chatSaver;
     private final ChatFinder chatFinder;
 
     // 개인 채팅방 개설 또는 기존 roomId return
-    @PostMapping("/private")
+    @Operation(summary = "1대1 채팅방 개설", description = """
+    ## 1대1 채팅방을 만듭니다.
+    - 채팅할 사람의 memberId를 입력합니다.
+    - 상대방과의 채팅방이 이미 존재하는 경우, 기존 roomId를 반환합니다.
+    """)
+    @PostMapping("/rooms/private")
     public ApiResponse<Long> createPrivateChatRoom(
             @AuthenticationPrincipal AuthDetails authDetails,
             @RequestParam Long otherMemberId) {
-        return ApiResponse.success(chatSaver.create(authDetails.getMemberId(), otherMemberId));
+        return ApiResponse.success(chatSaver.createPrivateChatRoom(authDetails.getMemberId(), otherMemberId));
+    }
+
+    // 그룹 채팅방 개설
+    @Operation(summary = "그룹 채팅방 개설", description = """
+    ## 그룹 채팅방을 만듭니다.
+    - 채팅할 사람의 memberId 목록을 입력합니다.
+    """)
+    @PostMapping("/rooms/group")
+    public ApiResponse<Long> createGroupChatRoom(
+            @AuthenticationPrincipal AuthDetails authDetails,
+            @RequestParam List<Long> otherMemberIds) {
+        List<Long> memberIds = new ArrayList<>();
+        memberIds.add(authDetails.getMemberId());
+        memberIds.addAll(otherMemberIds);
+        return ApiResponse.success(chatSaver.createGroupChatRoom(memberIds));
     }
 
     // 내 채팅방 목록 조회 : roomId, roomName, 그룹채팅여부, 메시지읽음개수
+    @Operation(summary = "내 채팅방 목록 조회", description = """
+    ## 나의 채팅방 목록을 조횝합니다.
+    - 내가 속해있는 채팅방 목록을 조회힙니다.
+    - 각 채팅방마다 roomId, roomName, 그룹채팅 여부, 메시지 읽음 개수를 반환받습니다.
+    """)
     @GetMapping("/rooms/me")
     public ApiResponse<List<ChatRoomSummary>> getMyChatRooms(
             @AuthenticationPrincipal AuthDetails authDetails) {
@@ -36,6 +67,10 @@ public class ChatController {
     }
 
     // 메시지 조회
+    @Operation(summary = "채팅방 메시지 조회", description = """
+    ## 채팅방의 메시지를 조회합니다.
+    - 기본으로 최근 50개를 조회합니다.
+    """)
     @GetMapping("/rooms/{roomId}/messages")
     public ApiResponse<Slice<ChatMessageDto>> getMessages(
             @PathVariable Long roomId,
@@ -47,6 +82,10 @@ public class ChatController {
     }
 
     // 채팅 메시지 읽음 처리
+    @Operation(summary = "채팅 메시지 읽음 처리", description = """
+    ## 채팅 메시지를 읽음 처리합니다.
+    - 채팅방의 채팅 메시지를 읽음 처리합니다.
+    """)
     @PostMapping("/rooms/{roomId}/read")
     public ApiResponse<?> markMessagesAsRead(
             @AuthenticationPrincipal AuthDetails authDetails,
@@ -56,6 +95,9 @@ public class ChatController {
     }
 
     // 채팅방 나가기
+    @Operation(summary = "채팅방 나가기", description = """
+    ## 채팅방을 나갑니다.
+    """)
     @DeleteMapping("/rooms/{roomId}")
     public ApiResponse<?> leaveChatRoom(
             @AuthenticationPrincipal AuthDetails authDetails,
