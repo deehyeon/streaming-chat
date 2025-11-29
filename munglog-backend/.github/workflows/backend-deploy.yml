@@ -1,0 +1,293 @@
+name: Backend Blue-Green CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'munglog-backend/**'
+      - '.github/workflows/backend-deploy.yml'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'munglog-backend/**'
+      - '.github/workflows/backend-deploy.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/munglog-backend
+
+jobs:
+  # ========================================
+  # Job 1: Build and Push
+  # ========================================
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # application.yml 파일 생성
+      - name: Create application.yml files
+        working-directory: ./munglog-backend
+        run: |
+          mkdir -p src/main/resources
+          echo "${{ secrets.APPLICATION_YML }}" > src/main/resources/application.yml
+
+      - name: Grant execute permission for gradlew
+        working-directory: ./munglog-backend
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        working-directory: ./munglog-backend
+        run: ./gradlew clean build -x test --parallel --no-daemon
+
+      # PR인 경우 여기서 종료 (빌드만)
+      - name: Build Summary (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "### ✅ Build Successful (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.head_ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** \`${{ github.base_ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Docker image not pushed (PR mode)" >> $GITHUB_STEP_SUMMARY
+
+      # ↓↓↓ push일 때만 이미지 빌드 & 푸시 ↓↓↓
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine image tag
+        if: github.event_name == 'push'
+        id: image-tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "tag=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "tag=staging" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Unsupported branch for deployment"
+            exit 1
+          fi
+
+      # main 브랜치 (prod + latest)
+      - name: Build and push Docker image (main → prod, latest)
+        if: github.event_name == 'push' && steps.image-tag.outputs.tag == 'prod'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./munglog-backend
+          file: ./munglog-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      # develop 브랜치 (staging)
+      - name: Build and push Docker image (develop → staging)
+        if: github.event_name == 'push' && steps.image-tag.outputs.tag == 'staging'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./munglog-backend
+          file: ./munglog-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+
+      - name: Image Summary
+        if: github.event_name == 'push'
+        run: |
+          echo "### 🐳 Docker Image Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================
+  # Job 2: Deploy (Blue-Green)
+  # ========================================
+  deploy:
+    name: Blue-Green Deployment
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
+
+    steps:
+      # 현재 어느 서버가 운영 중인지 확인
+      - name: Determine target server (Blue or Green)
+        id: target
+        run: |
+          # Blue 서버 헬스체크
+          BLUE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.BLUE_SERVER_HOST }}/actuator/health" || echo "000")
+          
+          # Green 서버 헬스체크
+          GREEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.GREEN_SERVER_HOST }}/actuator/health" || echo "000")
+          
+          echo "BLUE_STATUS=$BLUE_STATUS"
+          echo "GREEN_STATUS=$GREEN_STATUS"
+          
+          # Blue가 운영 중이면 Green에 배포
+          if [ "$BLUE_STATUS" = "200" ]; then
+            echo "current=blue" >> $GITHUB_OUTPUT
+            echo "target=green" >> $GITHUB_OUTPUT
+            echo "current_ip=${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "target_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+            echo "current_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+          # Green이 운영 중이면 Blue에 배포
+          elif [ "$GREEN_STATUS" = "200" ]; then
+            echo "current=green" >> $GITHUB_OUTPUT
+            echo "target=blue" >> $GITHUB_OUTPUT
+            echo "current_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "target_ip=${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.BLUE_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+            echo "current_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+          # 둘 다 다운이면 Green에 배포 (기본값)
+          else
+            echo "Notice: No active server detected. Deploying to Green."
+            echo "current=none" >> $GITHUB_OUTPUT
+            echo "target=green" >> $GITHUB_OUTPUT
+            echo "current_ip=none" >> $GITHUB_OUTPUT
+            echo "target_ip=${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "target_private_ip=${{ secrets.GREEN_SERVER_PRIVATE_IP }}" >> $GITHUB_OUTPUT
+            echo "current_private_ip=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deployment Info
+        run: |
+          echo "### 🎯 Deployment Target" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Server:** ${{ steps.target.outputs.current }} (${{ steps.target.outputs.current_ip }})" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Server:** ${{ steps.target.outputs.target }} (${{ steps.target.outputs.target_ip }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      # Target 서버에 배포
+      - name: Deploy to target server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST_PORT: ${{ secrets.POSTGRES_HOST_PORT }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TARGET_SERVER: ${{ steps.target.outputs.target }}
+        with:
+          host: ${{ steps.target.outputs.target_ip }}
+          username: ubuntu
+          key: ${{ steps.target.outputs.target == 'blue' && secrets.BLUE_SERVER_SSH_KEY || secrets.GREEN_SERVER_SSH_KEY }}
+          envs: POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_HOST_PORT,REDIS_PORT,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASE_URL,TARGET_SERVER
+          script: |
+            set -e
+            
+            cd ~/app/${TARGET_SERVER}
+            
+            echo "=== 🚀 Deploying to ${TARGET_SERVER^^} Server ==="
+            
+            echo "=== Updating .env file ==="
+            cat > .env << ENVEOF
+            POSTGRES_DB=${POSTGRES_DB}
+            POSTGRES_USER=${POSTGRES_USER}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT}
+            REDIS_PORT=${REDIS_PORT}
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            BASE_URL=${BASE_URL}
+            ENVEOF
+            
+            chmod 600 .env
+            
+            echo "=== Logging in to GitHub Container Registry ==="
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            echo "=== Pulling latest image ==="
+            docker compose pull app
+            
+            echo "=== Stopping old containers ==="
+            docker compose down
+            
+            echo "=== Starting new containers ==="
+            docker compose up -d
+            
+            echo "=== Waiting for application (45s) ==="
+            sleep 45
+
+      # Target 서버 헬스체크
+      - name: Health check target server
+        uses: jtalk/url-health-check-action@v4
+        with:
+          url: http://${{ steps.target.outputs.target_ip }}/actuator/health
+          max-attempts: 20
+          retry-delay: 10s
+
+      - name: Deployment Success
+        run: |
+          echo "### ✅ Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed to:** ${{ steps.target.outputs.target }} server" >> $GITHUB_STEP_SUMMARY
+          echo "**Server IP:** ${{ steps.target.outputs.target_ip }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Health check:** Passed ✅" >> $GITHUB_STEP_SUMMARY
+
+      - name: Traffic Switch Instructions
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔄 Next Steps: Switch Load Balancer Traffic" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Oracle Console Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to Load Balancers → munglog-lb" >> $GITHUB_STEP_SUMMARY
+          echo "2. Backend Sets → munglog-backend-set" >> $GITHUB_STEP_SUMMARY
+          echo "3. Update Backend Weights:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.target.outputs.target }}" == "green" ]; then
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "   - **Blue (${{ secrets.BLUE_SERVER_PRIVATE_IP }}:80):** Weight 0 → 1 ✅" >> $GITHUB_STEP_SUMMARY
+            echo "   - **Green (${{ secrets.GREEN_SERVER_PRIVATE_IP }}:80):** Weight 1 → 0" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "4. Monitor for 5-10 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "5. Check Load Balancer: http://${{ secrets.LOAD_BALANCER_IP }}/actuator/health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Test Commands:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Test new server directly" >> $GITHUB_STEP_SUMMARY
+          echo "curl http://${{ steps.target.outputs.target_ip }}/actuator/health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Test Load Balancer (after traffic switch)" >> $GITHUB_STEP_SUMMARY
+          echo "curl http://${{ secrets.LOAD_BALANCER_IP }}/actuator/health" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Send notification
+        if: always()
+        run: |
+          echo "Deployment completed: ${{ job.status }}"
+          echo "Target server: ${{ steps.target.outputs.target }}"
