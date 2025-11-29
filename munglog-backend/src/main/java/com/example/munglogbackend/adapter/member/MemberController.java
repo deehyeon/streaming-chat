@@ -29,7 +29,7 @@ public class MemberController {
         - 경로 파라미터로 전달된 `memberId`에 해당하는 회원을 논리 삭제합니다.
         """
     )
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @DeleteMapping("/{memberId}")
     public ApiResponse<?> softDelete(@PathVariable Long memberId) {
         memberSaver.softDelete(memberId);
