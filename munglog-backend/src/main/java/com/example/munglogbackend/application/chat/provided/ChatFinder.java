@@ -1,12 +1,11 @@
 package com.example.munglogbackend.application.chat.provided;
 
-import com.example.munglogbackend.domain.chat.dto.ChatMessageDto;
-import com.example.munglogbackend.domain.chat.dto.ChatRoomSummary;
+import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
+import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
 import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
 import org.springframework.data.domain.Slice;
 
-import javax.swing.text.html.Option;
 import java.util.List;
 
 public interface ChatFinder {

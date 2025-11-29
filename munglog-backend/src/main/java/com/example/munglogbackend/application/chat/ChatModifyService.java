@@ -6,8 +6,8 @@ import com.example.munglogbackend.application.chat.required.ChatMessageRepositor
 import com.example.munglogbackend.application.chat.required.ChatParticipantRepository;
 import com.example.munglogbackend.application.chat.required.ChatRoomRepository;
 import com.example.munglogbackend.application.member.provided.MemberFinder;
-import com.example.munglogbackend.domain.chat.dto.ChatMessageDto;
-import com.example.munglogbackend.domain.chat.dto.ChatRoomSummary;
+import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
+import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
 import com.example.munglogbackend.domain.chat.entity.ChatMessage;
 import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
@@ -20,10 +20,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -39,7 +36,7 @@ public class ChatModifyService implements ChatSaver {
     private final SimpMessagingTemplate messagingTemplate;     // STOMP 브로드캐스트
 
     @Override
-    public Long create(Long memberAId, Long memberBId) {
+    public Long createPrivateChatRoom(Long memberAId, Long memberBId) {
         if(memberAId.equals(memberBId)) {throw new ChatException(ChatErrorType.SELF_CHAT_NOT_ALLOWED);}
 
         Member memberA = memberFinder.findActiveById(memberAId);
@@ -48,10 +45,22 @@ public class ChatModifyService implements ChatSaver {
         Optional<ChatRoom> chatRoomBetweenMembers = chatRoomRepository.findByMembers(memberAId, memberBId);
         if (chatRoomBetweenMembers.isPresent()) {return chatRoomBetweenMembers.get().getId();}
 
-        ChatRoom chatRoom = ChatRoom.createWithMembers(List.of(memberA, memberB));
+        ChatRoom chatRoom = ChatRoom.createPrivateChatRoom(memberA, memberB);
         ChatRoom newChatRoom = chatRoomRepository.save(chatRoom);
 
         return newChatRoom.getId();
+    }
+
+    @Override
+    public Long createGroupChatRoom(List<Long> memberIds) {
+        List<Member> members = new ArrayList<>();
+
+        memberIds.forEach(memberFinder::findActiveById);
+        memberIds.forEach((memberId) -> { members.add(memberFinder.findActiveById(memberId));});
+
+        ChatRoom chatRoom = ChatRoom.createGroupChatRoom(members);
+        chatRoomRepository.save(chatRoom);
+        return chatRoom.getId();
     }
 
     @Override
