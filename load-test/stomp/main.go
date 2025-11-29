@@ -36,27 +36,36 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-// 로그인 응답 DTO
-type LoginResponse struct {
+// 토큰 정보
+type TokenInfo struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
+// 멤버 정보
+type MemberInfo struct {
+	MemberId   int64  `json:"memberId"`
+	MemberName string `json:"memberName"`
+	MemberRole string `json:"memberRole"`
+}
+
+// 로그인 응답 데이터
+type LoginResponseData struct {
+	TokenInfo  TokenInfo  `json:"tokenInfo"`
+	MemberInfo MemberInfo `json:"memberInfo"`
+}
+
 // API 응답 래퍼
 type ApiResponse struct {
-	Result string      `json:"result"`
-	Data   interface{} `json:"data"`
-	Error  interface{} `json:"error"`
+	Result string          `json:"result"`
+	Data   json.RawMessage `json:"data"`
+	Error  interface{}     `json:"error"`
 }
 
-// 채팅방 생성 요청 DTO
-type CreateChatRoomRequest struct {
-	Name string `json:"name"`
-}
-
-// 채팅방 ID 응답 DTO
-type ChatRoomIdResponse struct {
-	RoomID int64 `json:"roomId"`
+// 단체 채팅방 생성 요청 DTO
+type CreateGroupChatRoomRequest struct {
+	Name      string  `json:"name"`
+	MemberIds []int64 `json:"memberIds"`
 }
 
 // 메시지 수신 구조체
@@ -118,9 +127,9 @@ func startMetricsServer(port string) {
 }
 
 // 자동 로그인 함수
-func autoLogin(email, password string) (string, error) {
+func autoLogin(email, password string) (string, int64, error) {
 	if url == "" {
-		return "", fmt.Errorf("SERVER_URL이 비어 있습니다")
+		return "", 0, fmt.Errorf("SERVER_URL이 비어 있습니다")
 	}
 
 	endpoint := "http://" + url + "/api/v1/auth/login"
@@ -132,65 +141,61 @@ func autoLogin(email, password string) (string, error) {
 
 	jsonData, err := json.Marshal(loginReq)
 	if err != nil {
-		return "", fmt.Errorf("로그인 요청 JSON 생성 실패: %w", err)
+		return "", 0, fmt.Errorf("로그인 요청 JSON 생성 실패: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("로그인 요청 생성 실패: %w", err)
+		return "", 0, fmt.Errorf("로그인 요청 생성 실패: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("로그인 API 호출 실패: %w", err)
+		return "", 0, fmt.Errorf("로그인 API 호출 실패: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("로그인 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
+		return "", 0, fmt.Errorf("로그인 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp ApiResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return "", fmt.Errorf("로그인 응답 JSON 파싱 실패: %w", err)
+		return "", 0, fmt.Errorf("로그인 응답 JSON 파싱 실패: %w", err)
 	}
 
 	if apiResp.Result != "SUCCESS" {
-		return "", fmt.Errorf("로그인 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
+		return "", 0, fmt.Errorf("로그인 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 LoginResponse로 변환
-	dataBytes, err := json.Marshal(apiResp.Data)
-	if err != nil {
-		return "", fmt.Errorf("로그인 데이터 변환 실패: %w", err)
+	// Data를 LoginResponseData로 변환
+	var loginResp LoginResponseData
+	if err := json.Unmarshal(apiResp.Data, &loginResp); err != nil {
+		return "", 0, fmt.Errorf("로그인 응답 데이터 파싱 실패: %w", err)
 	}
 
-	var loginResp LoginResponse
-	if err := json.Unmarshal(dataBytes, &loginResp); err != nil {
-		return "", fmt.Errorf("로그인 응답 데이터 파싱 실패: %w", err)
+	if loginResp.TokenInfo.AccessToken == "" {
+		return "", 0, fmt.Errorf("로그인 성공했으나 accessToken이 비어 있습니다")
 	}
 
-	if loginResp.AccessToken == "" {
-		return "", fmt.Errorf("로그인 성공했으나 accessToken이 비어 있습니다")
-	}
-
-	return loginResp.AccessToken, nil
+	return loginResp.TokenInfo.AccessToken, loginResp.MemberInfo.MemberId, nil
 }
 
-// 채팅방 생성 함수
-func createChatRoom(roomName string) (int64, error) {
+// 단체 채팅방 생성 함수
+func createGroupChatRoom(roomName string, memberIds []int64) (int64, error) {
 	if token == "" || url == "" {
 		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
 	}
 
-	endpoint := "http://" + url + "/api/v1/chat/rooms"
+	endpoint := "http://" + url + "/api/v1/chat/rooms/group"
 
-	createReq := CreateChatRoomRequest{
-		Name: roomName,
+	createReq := CreateGroupChatRoomRequest{
+		Name:      roomName,
+		MemberIds: memberIds,
 	}
 
 	jsonData, err := json.Marshal(createReq)
@@ -227,27 +232,22 @@ func createChatRoom(roomName string) (int64, error) {
 		return 0, fmt.Errorf("채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 ChatRoomIdResponse로 변환
-	dataBytes, err := json.Marshal(apiResp.Data)
-	if err != nil {
-		return 0, fmt.Errorf("채팅방 데이터 변환 실패: %w", err)
+	// Data를 int64로 변환 (roomId)
+	var roomId int64
+	if err := json.Unmarshal(apiResp.Data, &roomId); err != nil {
+		return 0, fmt.Errorf("채팅방 ID 파싱 실패: %w", err)
 	}
 
-	var roomResp ChatRoomIdResponse
-	if err := json.Unmarshal(dataBytes, &roomResp); err != nil {
-		return 0, fmt.Errorf("채팅방 응답 데이터 파싱 실패: %w", err)
-	}
-
-	return roomResp.RoomID, nil
+	return roomId, nil
 }
 
-// 채팅방 목록 조회 (기존 함수 유지)
+// 채팅방 목록 조회 (기존 함수 - 필요시 사용)
 func fetchRoomIDFromAPI() (int64, error) {
 	if token == "" || url == "" {
 		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
 	}
 
-	endpoint := "http://" + url + "/api/v1/chat/rooms"
+	endpoint := "http://" + url + "/api/v1/chat/rooms/me"
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -279,22 +279,17 @@ func fetchRoomIDFromAPI() (int64, error) {
 		return 0, fmt.Errorf("API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 []ChatRoomIdResponse로 변환
-	dataBytes, err := json.Marshal(apiResp.Data)
-	if err != nil {
-		return 0, fmt.Errorf("채팅방 데이터 변환 실패: %w", err)
-	}
-
-	var rooms []ChatRoomIdResponse
-	if err := json.Unmarshal(dataBytes, &rooms); err != nil {
+	// Data를 []int64 배열로 파싱 (roomId 리스트)
+	var roomIds []int64
+	if err := json.Unmarshal(apiResp.Data, &roomIds); err != nil {
 		return 0, fmt.Errorf("채팅방 목록 데이터 파싱 실패: %w", err)
 	}
 
-	if len(rooms) == 0 {
+	if len(roomIds) == 0 {
 		return 0, fmt.Errorf("서버에서 반환한 채팅방이 없습니다")
 	}
 
-	return rooms[0].RoomID, nil
+	return roomIds[0], nil
 }
 
 // pending 메시지 타임아웃 정리 고루틴
@@ -312,7 +307,7 @@ func cleanupPendingMessages(ctx context.Context, timeout time.Duration) {
 				sentTime := value.(time.Time)
 				if now.Sub(sentTime) > timeout {
 					pendingMessages.Delete(key)
-					log.Printf("타임아웃된 메시지 정리: %s (경과: %v)\n", key, now.Sub(sentTime))
+					// 타임아웃 메시지는 로그만 남기고 에러 카운트하지 않음 (정상적인 상황일 수 있음)
 				}
 				return true
 			})
@@ -345,24 +340,27 @@ func init() {
 
 	// 인증 처리 (우선순위: TOKEN > EMAIL/PASSWORD)
 	token = os.Getenv("TOKEN")
+	var myMemberId int64
+
 	if token == "" {
 		email := os.Getenv("EMAIL")
 		password := os.Getenv("PASSWORD")
 
 		if email != "" && password != "" {
 			log.Println("TOKEN 미설정 → EMAIL/PASSWORD로 자동 로그인 시도")
-			accessToken, err := autoLogin(email, password)
+			accessToken, memberId, err := autoLogin(email, password)
 			if err != nil {
 				log.Fatalf("자동 로그인 실패: %v", err)
 			}
 			token = accessToken
-			log.Println("✓ 자동 로그인 성공")
+			myMemberId = memberId
+			log.Printf("✓ 자동 로그인 성공 (memberId=%d)\n", memberId)
 		} else {
 			log.Fatal("환경 변수 TOKEN 또는 (EMAIL + PASSWORD)가 필요합니다.")
 		}
 	}
 
-	// ROOM_ID 처리 (우선순위: ROOM_ID > 기존 방 조회 > 새로 생성)
+	// ROOM_ID 처리 (우선순위: ROOM_ID > 새로운 단체방 생성 > 기존 방 조회)
 	roomIDStr := os.Getenv("ROOM_ID")
 	if roomIDStr != "" {
 		parsedRoomID, err := strconv.ParseInt(roomIDStr, 10, 64)
@@ -374,17 +372,41 @@ func init() {
 	} else {
 		createNewRoom := os.Getenv("CREATE_NEW_ROOM")
 		if createNewRoom == "true" {
-			log.Println("ROOM_ID 미설정 + CREATE_NEW_ROOM=true → 새 채팅방 생성 시도")
+			log.Println("ROOM_ID 미설정 + CREATE_NEW_ROOM=true → 새 단체 채팅방 생성 시도")
 			roomName := os.Getenv("ROOM_NAME")
 			if roomName == "" {
 				roomName = fmt.Sprintf("Load Test Room %s", time.Now().Format("2006-01-02 15:04:05"))
 			}
-			fetchedRoomID, err := createChatRoom(roomName)
+
+			// 멤버 ID 목록 파싱
+			memberIdsStr := os.Getenv("MEMBER_IDS")
+			var memberIds []int64
+
+			if memberIdsStr != "" {
+				// 쉼표로 구분된 멤버 ID 파싱
+				idStrs := strings.Split(memberIdsStr, ",")
+				for _, idStr := range idStrs {
+					idStr = strings.TrimSpace(idStr)
+					if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+						memberIds = append(memberIds, id)
+					}
+				}
+			}
+
+			// 멤버 ID가 없으면 자기 자신만 추가
+			if len(memberIds) == 0 && myMemberId > 0 {
+				memberIds = []int64{myMemberId}
+				log.Printf("멤버 ID 미설정 → 자기 자신만 포함 (memberId=%d)\n", myMemberId)
+			} else if len(memberIds) == 0 {
+				log.Fatal("채팅방 생성에 필요한 멤버 ID를 찾을 수 없습니다. MEMBER_IDS 환경변수를 설정하거나 자동 로그인을 사용하세요.")
+			}
+
+			fetchedRoomID, err := createGroupChatRoom(roomName, memberIds)
 			if err != nil {
-				log.Fatalf("채팅방 생성 실패: %v", err)
+				log.Fatalf("단체 채팅방 생성 실패: %v", err)
 			}
 			roomID = fetchedRoomID
-			log.Printf("✓ 새 채팅방 생성 완료 (ROOM_ID=%d, NAME=%s)\n", roomID, roomName)
+			log.Printf("✓ 새 단체 채팅방 생성 완료 (ROOM_ID=%d, NAME=%s, MEMBERS=%v)\n", roomID, roomName, memberIds)
 		} else {
 			log.Println("ROOM_ID 미설정 → 채팅방 목록 API에서 첫 번째 방 조회 시도")
 			fetchedRoomID, err := fetchRoomIDFromAPI()
