@@ -3,6 +3,8 @@ package com.example.munglogbackend.application.member;
 import com.example.munglogbackend.application.member.dto.MemberLoginInfo;
 import com.example.munglogbackend.application.member.dto.TokenResponse;
 import com.example.munglogbackend.application.member.provided.Auth;
+import com.example.munglogbackend.application.member.provided.MemberFinder;
+import com.example.munglogbackend.application.member.provided.MemberSaver;
 import com.example.munglogbackend.application.member.required.MemberRepository;
 import com.example.munglogbackend.application.security.MemoryMap;
 import com.example.munglogbackend.application.security.TokenProvider;
@@ -25,6 +27,8 @@ import java.util.UUID;
 @Transactional
 @RequiredArgsConstructor
 public class AuthService implements Auth {
+    private final MemberFinder memberFinder;
+    private final MemberSaver memberSaver;
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
@@ -32,18 +36,17 @@ public class AuthService implements Auth {
 
     @Override
     public MemberLoginInfo signup(MemberSignUpRequest request) {
-        checkDuplicateEmail(new Email(request.email()));
+        checkDuplicateEmail(request.email());
 
         Member member = Member.create(getHashedRequest(request));
-        memberRepository.save(member);
+        memberSaver.save(member);
 
         return login(MemberLoginRequest.of(request));
     }
 
     @Override
     public MemberLoginInfo login(MemberLoginRequest request) {
-        Member member = memberRepository.findByEmail(new Email(request.email())).orElseThrow(() -> new MemberException(MemberErrorType.INVALID_EMAIL));
-
+        Member member = memberFinder.findActiveByEmail(request.email());
         verifyPassword(request.password(), member.getHashedPassword());
 
         TokenInfo tokenInfo = getTokenInfo(member);
@@ -53,10 +56,11 @@ public class AuthService implements Auth {
     }
 
     @Override
-    public void checkDuplicateEmail(Email email) {
-        memberRepository.findByEmail(email).ifPresent(member -> {
+    public void checkDuplicateEmail(String email) {
+        boolean exists = memberRepository.existsByEmailAndIsDeletedFalse(new Email(email));
+        if (exists) {
             throw new MemberException(MemberErrorType.EMAIL_DUPLICATE);
-        });
+        }
     }
 
     @Override
@@ -82,21 +86,19 @@ public class AuthService implements Auth {
 
     @Override
     public void createMemberByGoogle(GoogleUserInfoDto googleUserInfoDto, MemberRole memberRole) {
-        Email email = new Email(googleUserInfoDto.email());
-
-        checkDuplicateEmail(email);
+        checkDuplicateEmail(googleUserInfoDto.email());
 
         // 소셜 로그인 유저라 비밀번호는 랜덤값으로 생성
         String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
 
         Member member = Member.createSocialMember(
                 googleUserInfoDto.name(),
-                email,
+                new Email(googleUserInfoDto.email()),
                 randomPassword,
                 memberRole
         );
 
-        memberRepository.save(member);
+        memberSaver.save(member);
     }
 
     private void verifyPassword(String password, String hashedPassword) {

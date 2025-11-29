@@ -42,8 +42,8 @@ public class ChatModifyService implements ChatSaver {
     public Long create(Long memberAId, Long memberBId) {
         if(memberAId.equals(memberBId)) {throw new ChatException(ChatErrorType.SELF_CHAT_NOT_ALLOWED);}
 
-        Member memberA = memberFinder.findById(memberAId);
-        Member memberB = memberFinder.findById(memberBId);
+        Member memberA = memberFinder.findActiveById(memberAId);
+        Member memberB = memberFinder.findActiveById(memberBId);
 
         Optional<ChatRoom> chatRoomBetweenMembers = chatRoomRepository.findByMembers(memberAId, memberBId);
         if (chatRoomBetweenMembers.isPresent()) {return chatRoomBetweenMembers.get().getId();}
@@ -58,7 +58,7 @@ public class ChatModifyService implements ChatSaver {
     public ChatMessage sendMessage(ChatMessageDto request) {
         // 채팅방 및 발신자 검증
         ChatRoom chatRoom = chatRoomRepository.findById(request.roomId()).orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
-        Member sender = memberFinder.findById(request.senderId());
+        Member sender = memberFinder.findActiveById(request.senderId());
         chatParticipantRepository.findByChatRoom_IdAndMember_Id(request.roomId(), sender.getId()).orElseThrow(() -> new ChatException(ChatErrorType.MEMBER_NOT_IN_CHAT_ROOM));
 
         // 채팅 메시지 저장

@@ -32,7 +32,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             throw new IllegalStateException("Email not found in OAuth2 user attributes");
         }
 
-        Member member = memberFinder.findByEmail(email);
+        Member member = memberFinder.findActiveByEmail(email);
 
         String accessToken  = tokenProvider.createAccessToken(member.getId());
         String refreshToken = tokenProvider.createRefreshToken(member.getId());
