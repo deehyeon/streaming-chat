@@ -94,6 +94,11 @@ var (
 	roomID          int64
 	messageInterval time.Duration // 메시지 전송 간격
 
+	// HTTP 클라이언트 (타임아웃 설정)
+	httpClient = &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
 	// 동시성 안전한 데이터 수집
 	resultsMutex             sync.Mutex
 	webSocketConnectTimeList []float64
@@ -151,7 +156,7 @@ func autoLogin(email, password string) (string, int64, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", 0, fmt.Errorf("로그인 API 호출 실패: %w", err)
 	}
@@ -211,7 +216,7 @@ func createGroupChatRoom(roomName string, memberIds []int64) (int64, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("채팅방 생성 API 호출 실패: %w", err)
 	}
@@ -257,7 +262,7 @@ func fetchRoomIDFromAPI() (int64, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("채팅방 목록 API 호출 실패: %w", err)
 	}
@@ -753,7 +758,6 @@ func main() {
 
 		// 이 스테이지의 context 생성
 		stageCtx, stageCancel := context.WithTimeout(mainCtx, stageDuration)
-		defer stageCancel()
 
 		var wg sync.WaitGroup
 		stageStartTime := time.Now()
