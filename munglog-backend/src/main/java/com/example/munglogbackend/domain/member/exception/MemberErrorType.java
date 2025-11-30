@@ -21,6 +21,7 @@ public enum MemberErrorType implements ErrorType {
     INVALID_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "유효하지 않은 전화번호입니다."),
     INVALID_NAME(HttpStatus.BAD_REQUEST, "유효하지 않은 이름입니다."),
     INVALID_PASSWORD_UPDATE_REQUEST(HttpStatus.BAD_REQUEST, "올바르지 않은 비밀번호 수정 요청입니다."),
+    INVALID_MEMBER_ROLE(HttpStatus.BAD_REQUEST, "보호소 회원만 보호소를 생성할 수 있습니다."),
 
     MEMBER_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "이미 삭제된 회원입니다."),
     MEMBER_NOT_DELETED(HttpStatus.BAD_REQUEST, "삭제되지 않은 회원입니다."),
