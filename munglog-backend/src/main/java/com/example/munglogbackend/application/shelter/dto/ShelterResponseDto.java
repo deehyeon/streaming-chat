@@ -13,6 +13,9 @@ public record ShelterResponseDto(
         @Schema(description = "보호소 ID", example = "1")
         Long shelterId,
 
+        @Schema(description = "보호소 주인 ID", example = "1")
+        Long shelterOwnerId,
+
         @Schema(description = "보호소 이름", example = "사랑 동물 보호소")
         String name,
 
@@ -46,6 +49,7 @@ public record ShelterResponseDto(
     public static ShelterResponseDto from(Shelter shelter) {
         return new ShelterResponseDto(
                 shelter.getId(),
+                shelter.getMember().getId(),
                 shelter.getName(),
                 shelter.getPhone(),
                 shelter.getEmail() != null ? shelter.getEmail() : null,

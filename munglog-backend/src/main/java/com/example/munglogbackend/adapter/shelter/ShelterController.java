@@ -8,6 +8,7 @@ import com.example.munglogbackend.application.shelter.provided.ShelterFinder;
 import com.example.munglogbackend.application.shelter.provided.ShelterSaver;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import com.example.munglogbackend.domain.member.dto.AddressRequest;
+import com.example.munglogbackend.domain.shelter.Shelter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -55,7 +56,7 @@ public class ShelterController {
     - 보호소 사진, 강아지 사진 URL 목록도 함께 조회됩니다.
     """)
     @GetMapping("/{shelterId}")
-    public ApiResponse<ShelterResponseDto> getShelter(@PathVariable Long shelterId) {
+    public ApiResponse<Shelter> getShelter(@PathVariable Long shelterId) {
         return ApiResponse.success(shelterFinder.findShelterById(shelterId));
     }
 
