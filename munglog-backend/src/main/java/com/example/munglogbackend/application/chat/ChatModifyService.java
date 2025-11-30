@@ -12,6 +12,7 @@ import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
 import com.example.munglogbackend.domain.chat.entity.ChatMessage;
 import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
+import com.example.munglogbackend.domain.chat.enumerate.ChatRoomType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
 import com.example.munglogbackend.domain.member.Member;
@@ -56,9 +57,7 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public Long createGroupChatRoom(Long creatorId, List<Long> otherMemberIds) {
-        if (creatorId == null) {
-            throw new ChatException(ChatErrorType.INVALID_GROUP_SIZE);
-        }
+        memberFinder.findActiveById(creatorId);
 
         List<Long> allMemberIds = new ArrayList<>();
         allMemberIds.add(creatorId);
@@ -79,6 +78,10 @@ public class ChatModifyService implements ChatSaver {
     public void joinGroupChatRoom(Long memberId, Long roomId) {
         Member member = memberFinder.findActiveById(memberId);
         ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(roomId);
+
+        if (chatRoom.getChatRoomType() != ChatRoomType.GROUP) {
+            throw new ChatException(ChatErrorType.NOT_GROUP_CHAT);
+        }
 
         chatRoom.addMember(member);
     }
