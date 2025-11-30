@@ -27,7 +27,7 @@ public class VolunteerApplicationModifyService implements VolunteerApplicationSa
     @Override
     public Long createVolunteerApplication(Long memberId, VolunteerApplicationRequestDto request) {
         Member member = memberFinder.findActiveById(memberId);
-        Shelter shelter = shelterFinder.findShelterById(request.shelterId());
+        Shelter shelter = shelterFinder.findById(request.shelterId());
 
         // 중복 신청 확인 추가
         if (volunteerApplicationFinder.existsActiveApplication(
@@ -46,8 +46,9 @@ public class VolunteerApplicationModifyService implements VolunteerApplicationSa
     @Override
     public void cancelVolunteerApplication(Long memberId, Long volunteerApplicationId) {
         Member member = memberFinder.findActiveById(memberId);
-        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findById(volunteerApplicationId)
-                .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
+
+        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findWithDetailsById(volunteerApplicationId)
+                        .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
 
         if (!volunteerApplication.getMember().getId().equals(member.getId())) {
             throw new VolunteerApplicationException(VolunteerApplicationErrorType.UNAUTHORIZED_APPLICATION_ACCESS);
@@ -59,8 +60,8 @@ public class VolunteerApplicationModifyService implements VolunteerApplicationSa
     @Override
     public void approveVolunteerApplication(Long shelterOwnerId, Long volunteerApplicationId) {
         memberFinder.findActiveById(shelterOwnerId);
-        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findById(volunteerApplicationId)
-                .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
+        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findWithDetailsById(volunteerApplicationId)
+                        .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
 
         if (!volunteerApplication.getShelter().getMember().getId().equals(shelterOwnerId)) {
             throw new VolunteerApplicationException(VolunteerApplicationErrorType.NOT_SHELTER_OWNER);
@@ -72,8 +73,8 @@ public class VolunteerApplicationModifyService implements VolunteerApplicationSa
     @Override
     public void rejectVolunteerApplication(Long shelterOwnerId, Long volunteerApplicationId) {
         memberFinder.findActiveById(shelterOwnerId);
-        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findById(volunteerApplicationId)
-                .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
+        VolunteerApplication volunteerApplication = volunteerApplicationRepository.findWithDetailsById(volunteerApplicationId)
+                        .orElseThrow(() -> new VolunteerApplicationException(VolunteerApplicationErrorType.APPLICATION_NOT_FOUND));
 
         if (!volunteerApplication.getShelter().getMember().getId().equals(shelterOwnerId)) {
             throw new VolunteerApplicationException(VolunteerApplicationErrorType.NOT_SHELTER_OWNER);

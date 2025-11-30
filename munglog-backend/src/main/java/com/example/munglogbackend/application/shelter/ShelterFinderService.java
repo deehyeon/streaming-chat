@@ -32,7 +32,14 @@ public class ShelterFinderService implements ShelterFinder {
     }
 
     @Override
-    public Shelter findShelterById(Long shelterId) {
+    public ShelterResponseDto findShelterById(Long shelterId) {
+        Shelter shelter = shelterRepository.findByIdWithImages(shelterId)
+                .orElseThrow(() -> new ShelterException(ShelterErrorType.SHELTER_NOT_FOUND));
+        return ShelterResponseDto.from(shelter);
+    }
+
+    @Override
+    public Shelter findById(Long shelterId) {
         return shelterRepository.findByIdWithImages(shelterId)
                 .orElseThrow(() -> new ShelterException(ShelterErrorType.SHELTER_NOT_FOUND));
     }

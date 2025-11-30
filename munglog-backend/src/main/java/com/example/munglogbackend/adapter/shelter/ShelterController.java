@@ -56,7 +56,7 @@ public class ShelterController {
     - 보호소 사진, 강아지 사진 URL 목록도 함께 조회됩니다.
     """)
     @GetMapping("/{shelterId}")
-    public ApiResponse<Shelter> getShelter(@PathVariable Long shelterId) {
+    public ApiResponse<ShelterResponseDto> getShelter(@PathVariable Long shelterId) {
         return ApiResponse.success(shelterFinder.findShelterById(shelterId));
     }
 

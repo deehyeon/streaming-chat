@@ -10,7 +10,8 @@ public interface ShelterFinder {
     Page<ShelterSummary> findAllShelters(Pageable pageable);
     Page<ShelterSummary> findSheltersByRegion(String region, Pageable pageable);
 
-    Shelter findShelterById(Long shelterId);  // 반환 타입을 DTO로 변경
+    ShelterResponseDto findShelterById(Long shelterId);  // 반환 타입을 DTO로 변경
+    Shelter findById(Long shelterId);
     Page<ShelterResponseDto> findSheltersByName(String name, Pageable pageable);
     ShelterResponseDto findShelterByMember(Long memberId);
 }

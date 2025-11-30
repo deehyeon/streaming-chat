@@ -15,19 +15,17 @@ import java.util.Optional;
 
 @Repository
 public interface VolunteerApplicationRepository extends JpaRepository<VolunteerApplication, Long> {
-    // 회원이 신청한 봉사 목록 (페이징)
-    @EntityGraph(attributePaths = {"member", "shelter"})
+
+    // member, shelter, shelter.member 모두 로딩
+    @EntityGraph(attributePaths = {"member", "shelter", "shelter.member"})
     Page<VolunteerApplication> findByMemberId(Long memberId, Pageable pageable);
 
-    // 보호소가 받은 신청 목록 (페이징)
-    @EntityGraph(attributePaths = {"member", "shelter"})
+    @EntityGraph(attributePaths = {"member", "shelter", "shelter.member"})
     Page<VolunteerApplication> findByShelterId(Long shelterId, Pageable pageable);
 
-    // 특정 신청 조회 (member, shelter 함께 로딩)
-    @EntityGraph(attributePaths = {"member", "shelter"})
+    @EntityGraph(attributePaths = {"member", "shelter", "shelter.member"})
     Optional<VolunteerApplication> findWithDetailsById(Long id);
 
-    // 회원 + 보호소 + 날짜로 중복 신청 확인
     @Query("SELECT COUNT(va) > 0 FROM VolunteerApplication va " +
             "WHERE va.member.id = :memberId " +
             "AND va.shelter.id = :shelterId " +
@@ -40,16 +38,14 @@ public interface VolunteerApplicationRepository extends JpaRepository<VolunteerA
             @Param("date") LocalDate date
     );
 
-    // 상태별 조회 (보호소)
-    @EntityGraph(attributePaths = {"member", "shelter"})
+    @EntityGraph(attributePaths = {"member", "shelter", "shelter.member"})
     Page<VolunteerApplication> findByShelterIdAndStatus(
             Long shelterId,
             VolunteerApplicationStatus status,
             Pageable pageable
     );
 
-    // 상태별 조회 (회원)
-    @EntityGraph(attributePaths = {"member", "shelter"})
+    @EntityGraph(attributePaths = {"member", "shelter", "shelter.member"})
     Page<VolunteerApplication> findByMemberIdAndStatus(
             Long memberId,
             VolunteerApplicationStatus status,
