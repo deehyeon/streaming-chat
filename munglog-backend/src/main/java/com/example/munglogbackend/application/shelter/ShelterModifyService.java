@@ -37,9 +37,11 @@ public class ShelterModifyService implements ShelterSaver {
             throw new MemberException(MemberErrorType.INVALID_MEMBER_ROLE);
         }
 
-        Shelter shelter = request.toEntity(member);
-        Shelter savedShelter = shelterRepository.save(shelter);
-        return savedShelter.getId();
+        if(shelterRepository.findByMember_Id(memberId).isPresent()) {
+            Shelter shelter = request.toEntity(member);
+            Shelter savedShelter = shelterRepository.save(shelter);
+            return savedShelter.getId();
+        } else throw new ShelterException(ShelterErrorType.SHELTER_ALREADY_EXISTS);
     }
 
     @Override
