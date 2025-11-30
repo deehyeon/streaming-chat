@@ -1,20 +1,22 @@
 package com.example.munglogbackend.adapter.chat;
 
 import com.example.munglogbackend.adapter.security.AuthDetails;
-import com.example.munglogbackend.application.chat.provided.ChatFinder;
+import com.example.munglogbackend.application.chat.provided.ChatMessageFinder;
+import com.example.munglogbackend.application.chat.provided.ChatParticipantFinder;
+import com.example.munglogbackend.application.chat.provided.ChatRoomFinder;
 import com.example.munglogbackend.application.chat.provided.ChatSaver;
 import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Slice;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -24,7 +26,8 @@ import java.util.List;
 @Tag(name = "CHAT", description = "채팅 API")
 public class ChatController {
     private final ChatSaver chatSaver;
-    private final ChatFinder chatFinder;
+    private final ChatRoomFinder chatRoomFinder;
+    private final ChatMessageFinder chatMessageFinder;
 
     // 개인 채팅방 개설 또는 기존 roomId return
     @Operation(summary = "1대1 채팅방 개설", description = """
@@ -47,11 +50,35 @@ public class ChatController {
     @PostMapping("/rooms/group")
     public ApiResponse<Long> createGroupChatRoom(
             @AuthenticationPrincipal AuthDetails authDetails,
-            @RequestParam List<Long> otherMemberIds) {
-        List<Long> memberIds = new ArrayList<>();
-        memberIds.add(authDetails.getMemberId());
-        memberIds.addAll(otherMemberIds);
-        return ApiResponse.success(chatSaver.createGroupChatRoom(memberIds));
+            @RequestParam @Size(min = 0, max = 50, message = "그룹 채팅은 최대 50명까지 가능합니다") List<Long> otherMemberIds
+    ) {
+        return ApiResponse.success(chatSaver.createGroupChatRoom(authDetails.getMemberId(), otherMemberIds));
+    }
+
+    // 그룹 채팅방 개설
+    @Operation(summary = "그룹 채팅방에 참여한다.", description = """
+    ## 이미 존재하는 그룹 채팅방에 참여한다.
+    - 참여할 채팅방의 id를 입력해 참여한다.
+    """)
+    @PostMapping("/rooms/{roomId}")
+    public ApiResponse<?> joinGroupChatRoom(
+            @AuthenticationPrincipal AuthDetails authDetails,
+            @PathVariable Long roomId
+    ) {
+        chatSaver.joinGroupChatRoom(authDetails.getMemberId(), roomId);
+        return ApiResponse.success();
+    }
+
+    @Operation(summary = "전체 채팅방 목록을 조회한다.", description = """
+    ## 채팅방 목록 전체를 조회한다.
+    - 그룹 채팅방만 조회가 가능하다.
+    """
+    )
+    @GetMapping("/rooms")
+    public ApiResponse<List<ChatRoomSummary>> getGroupChatRooms(
+            @AuthenticationPrincipal AuthDetails authDetails
+    ) {
+        return ApiResponse.success(chatRoomFinder.findGroupChatRooms(authDetails.getMemberId()));
     }
 
     // 내 채팅방 목록 조회 : roomId, roomName, 그룹채팅여부, 메시지읽음개수
@@ -63,7 +90,7 @@ public class ChatController {
     @GetMapping("/rooms/me")
     public ApiResponse<List<ChatRoomSummary>> getMyChatRooms(
             @AuthenticationPrincipal AuthDetails authDetails) {
-        return ApiResponse.success(chatFinder.findRoomsByMember(authDetails.getMemberId()));
+        return ApiResponse.success(chatRoomFinder.findRoomsByMember(authDetails.getMemberId()));
     }
 
     // 메시지 조회
@@ -78,7 +105,7 @@ public class ChatController {
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal AuthDetails authDetails
     ) {
-        return ApiResponse.success(chatFinder.fetchMessagesBeforeSeq(roomId, beforeSeq, size, authDetails.getMemberId()));
+        return ApiResponse.success(chatMessageFinder.fetchMessagesBeforeSeq(roomId, beforeSeq, size, authDetails.getMemberId()));
     }
 
     // 채팅 메시지 읽음 처리
@@ -88,8 +115,7 @@ public class ChatController {
     """)
     @PostMapping("/rooms/{roomId}/read")
     public ApiResponse<?> markMessagesAsRead(
-            @AuthenticationPrincipal AuthDetails authDetails,
-            @PathVariable Long roomId) {
+            @AuthenticationPrincipal AuthDetails authDetails, @PathVariable Long roomId) {
         chatSaver.updateLastRead(roomId, authDetails.getMemberId());
         return ApiResponse.success();
     }
@@ -100,8 +126,7 @@ public class ChatController {
     """)
     @DeleteMapping("/rooms/{roomId}")
     public ApiResponse<?> leaveChatRoom(
-            @AuthenticationPrincipal AuthDetails authDetails,
-            @PathVariable Long roomId) {
+            @AuthenticationPrincipal AuthDetails authDetails, @PathVariable Long roomId) {
         chatSaver.leaveChatRoom(roomId, authDetails.getMemberId());
         return ApiResponse.success();
     }

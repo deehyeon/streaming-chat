@@ -1,6 +1,7 @@
 package com.example.munglogbackend.application.chat.dto;
 
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
+import com.example.munglogbackend.domain.chat.enumerate.ChatRoomType;
 import com.example.munglogbackend.domain.chat.enumerate.MessageType;
 
 import java.time.Instant;
@@ -10,13 +11,15 @@ import java.time.ZoneId;
 public record ChatRoomSummary(
         Long roomId,
         long unreadCount,
+        ChatRoomType chatRoomType,
         String lastMessagePreview,     // 미리보기용 문자열
         LocalDateTime lastMessageAt
 ) {
-    public static ChatRoomSummary of(ChatRoom room, long unread, String lastMessagePreview, Instant lastMessageAt) {
+    public static ChatRoomSummary of(ChatRoom room, long unread,ChatRoomType chatRoomType,  String lastMessagePreview, Instant lastMessageAt) {
         return new ChatRoomSummary(
                 room.getId(),
                 unread,
+                chatRoomType,
                 lastMessagePreview,
                 toLocalDateTime(lastMessageAt)
         );

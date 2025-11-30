@@ -1,14 +1,18 @@
 package com.example.munglogbackend.application.chat;
 
-import com.example.munglogbackend.application.chat.provided.ChatFinder;
+import com.example.munglogbackend.application.chat.provided.ChatMessageFinder;
+import com.example.munglogbackend.application.chat.provided.ChatParticipantFinder;
+import com.example.munglogbackend.application.chat.provided.ChatRoomFinder;
 import com.example.munglogbackend.application.chat.required.ChatMessageRepository;
 import com.example.munglogbackend.application.chat.required.ChatParticipantRepository;
 import com.example.munglogbackend.application.chat.required.ChatRoomRepository;
 import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
+import com.example.munglogbackend.application.member.provided.MemberFinder;
 import com.example.munglogbackend.domain.chat.entity.ChatMessage;
 import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
+import com.example.munglogbackend.domain.chat.enumerate.ChatRoomType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +29,11 @@ import static org.springframework.data.domain.Sort.Direction.DESC;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
-public class ChatFinderService implements ChatFinder {
+public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder, ChatMessageFinder {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final MemberFinder memberFinder;
 
     @Override
     public ChatRoom findRoomByRoomId(Long roomId) {
@@ -38,11 +43,6 @@ public class ChatFinderService implements ChatFinder {
     @Override
     public List<ChatParticipant> findChatParticipants(Long roomId) {
         return chatParticipantRepository.findAllByChatRoomId(roomId);
-    }
-
-    @Override
-    public long fetchCurrentRoomLatestSeq(Long roomId) {
-        return findLatestMessageSeq(roomId);
     }
 
     @Override
@@ -70,7 +70,18 @@ public class ChatFinderService implements ChatFinder {
                 .sorted(Comparator.comparing(ChatRoom::getLastMessageAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .map(room -> {
                     long unread = unreadMap.getOrDefault(room.getId(), 0L);
-                    return ChatRoomSummary.of(room, unread, room.getLastMessagePreview(), room.getLastMessageAt());
+                    return ChatRoomSummary.of(room, unread,room.getChatRoomType(), room.getLastMessagePreview(), room.getLastMessageAt());
+                }).toList();
+    }
+
+    @Override
+    public List<ChatRoomSummary> findGroupChatRooms(Long memberId) {
+        memberFinder.findActiveById(memberId);
+        List<ChatRoom> groupChatRooms = chatRoomRepository.findAllByChatRoomType(ChatRoomType.GROUP);
+
+        return groupChatRooms.stream()
+                .map(room -> {
+                    return ChatRoomSummary.of(room, 0L, room.getChatRoomType(), room.getLastMessagePreview(),  room.getLastMessageAt());
                 }).toList();
     }
 

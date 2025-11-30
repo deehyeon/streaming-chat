@@ -10,7 +10,9 @@ public interface ChatSaver {
     Long createPrivateChatRoom(Long memberAId, Long memberBId);
 
     /** 그룹 채팅방 생성 */
-    Long createGroupChatRoom(List<Long> memberIds);
+    Long createGroupChatRoom(Long creatorId, List<Long> otherMemberIds);
+
+    void joinGroupChatRoom(Long memberId, Long roomId);
 
     /** 채팅 메시지 전송 */
     ChatMessage sendMessage(ChatMessageDto request);

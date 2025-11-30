@@ -1,9 +1,10 @@
 package com.example.munglogbackend.application.chat;
 
-import com.example.munglogbackend.application.chat.provided.ChatFinder;
+import com.example.munglogbackend.application.chat.provided.ChatMessageFinder;
+import com.example.munglogbackend.application.chat.provided.ChatParticipantFinder;
+import com.example.munglogbackend.application.chat.provided.ChatRoomFinder;
 import com.example.munglogbackend.application.chat.provided.ChatSaver;
 import com.example.munglogbackend.application.chat.required.ChatMessageRepository;
-import com.example.munglogbackend.application.chat.required.ChatParticipantRepository;
 import com.example.munglogbackend.application.chat.required.ChatRoomRepository;
 import com.example.munglogbackend.application.member.provided.MemberFinder;
 import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
@@ -28,9 +29,11 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ChatModifyService implements ChatSaver {
     private final MemberFinder memberFinder;
-    private final ChatFinder chatFinder;
+    private final ChatRoomFinder chatRoomFinder;
+    private final ChatMessageFinder chatMessageFinder;
+    private final ChatParticipantFinder chatParticipantFinder;
+
     private final ChatRoomRepository chatRoomRepository;
-    private final ChatParticipantRepository chatParticipantRepository;
     private final ChatMessageRepository chatMessageRepository;
 
     private final SimpMessagingTemplate messagingTemplate;     // STOMP 브로드캐스트
@@ -52,11 +55,20 @@ public class ChatModifyService implements ChatSaver {
     }
 
     @Override
-    public Long createGroupChatRoom(List<Long> memberIds) {
-        List<Member> members = new ArrayList<>();
+    public Long createGroupChatRoom(Long creatorId, List<Long> otherMemberIds) {
+        if (creatorId == null) {
+            throw new ChatException(ChatErrorType.INVALID_GROUP_SIZE);
+        }
 
-        memberIds.forEach(memberFinder::findActiveById);
-        memberIds.forEach((memberId) -> { members.add(memberFinder.findActiveById(memberId));});
+        List<Long> allMemberIds = new ArrayList<>();
+        allMemberIds.add(creatorId);
+        allMemberIds.addAll(otherMemberIds);
+        List<Long> uniqueMemberIds = allMemberIds.stream().distinct().toList();
+
+        // Fetch members
+        List<Member> members = uniqueMemberIds.stream()
+                .map(memberFinder::findActiveById)
+                .toList();
 
         ChatRoom chatRoom = ChatRoom.createGroupChatRoom(members);
         chatRoomRepository.save(chatRoom);
@@ -64,34 +76,42 @@ public class ChatModifyService implements ChatSaver {
     }
 
     @Override
+    public void joinGroupChatRoom(Long memberId, Long roomId) {
+        Member member = memberFinder.findActiveById(memberId);
+        ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(roomId);
+
+        chatRoom.addMember(member);
+    }
+
+    @Override
     public ChatMessage sendMessage(ChatMessageDto request) {
         // 채팅방 및 발신자 검증
-        ChatRoom chatRoom = chatRoomRepository.findById(request.roomId()).orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
+        ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(request.roomId());
         Member sender = memberFinder.findActiveById(request.senderId());
-        chatParticipantRepository.findByChatRoom_IdAndMember_Id(request.roomId(), sender.getId()).orElseThrow(() -> new ChatException(ChatErrorType.MEMBER_NOT_IN_CHAT_ROOM));
+        chatParticipantFinder.findByRoomIdAndMemberId(chatRoom.getId(), sender.getId());
 
         // 채팅 메시지 저장
-        long seq = chatFinder.findLatestMessageSeq(request.roomId()) + 1;
+        long seq = chatMessageFinder.findLatestMessageSeq(request.roomId()) + 1;
         ChatMessage chatMessage = ChatMessage.create(request, seq, chatRoom, sender);
         ChatMessage saved = chatMessageRepository.save(chatMessage);
         chatRoom.updateLastMessage(saved.getCreatedAt(), saved.getContent());
 
         // 발신자 본인의 읽음 처리 업데이트
         updateLastRead(request.roomId(), request.senderId());
-        long currentSeq = chatFinder.fetchCurrentRoomLatestSeq(request.roomId());
+        long currentSeq = chatMessageFinder.findLatestMessageSeq(request.roomId());
 
         // STOMP 채팅방으로 브로드캐스트
         messagingTemplate.convertAndSend("/topic/chat/room/" + request.roomId(), toPayload(chatMessage));
 
         // 채팅방 요약 정보 개인 토픽으로 전송
-        List<ChatParticipant> chatRoomMembers = chatFinder.findChatParticipants(request.roomId());
+        List<ChatParticipant> chatRoomMembers = chatParticipantFinder.findChatParticipants(request.roomId());
         for (ChatParticipant participant : chatRoomMembers) {
             Long memberId = participant.getMember().getId();
 
             // 읽지 않은 메시지 수 계산
             long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
 
-            messagingTemplate.convertAndSend("/topic/user." + memberId + ".room-summary", ChatRoomSummary.of(chatRoom, unread, chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
+            messagingTemplate.convertAndSend("/topic/user." + memberId + ".room-summary", ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
             log.info("📡 [convertAndSend] 개인 토픽 전송: /topic/user.{}.room-summary", memberId);
         }
         return chatMessage;
@@ -99,7 +119,7 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public void leaveChatRoom(Long roomId, Long memberId) {
-        ChatRoom chatRoom = chatRoomRepository.findById(roomId).orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
+        ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(roomId);
 
         chatRoom.removeMember(memberId);
 
@@ -110,9 +130,9 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public void updateLastRead(Long roomId, Long memberId) {
-        chatFinder.findRoomByRoomId(roomId);
-        ChatParticipant participant = chatFinder.findByRoomIdAndMemberId(roomId, memberId);
-        long lastReadSeq = chatFinder.findLatestMessageSeq(roomId);
+        chatRoomFinder.findRoomByRoomId(roomId);
+        ChatParticipant participant = chatParticipantFinder.findByRoomIdAndMemberId(roomId, memberId);
+        long lastReadSeq = chatMessageFinder.findLatestMessageSeq(roomId);
 
         participant.updateLastRead(lastReadSeq);
     }

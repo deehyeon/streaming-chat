@@ -1,7 +1,8 @@
 package com.example.munglogbackend.adapter.stomp;
 
-import com.example.munglogbackend.application.chat.provided.ChatFinder;
+import com.example.munglogbackend.application.chat.provided.ChatParticipantFinder;
 import com.example.munglogbackend.application.security.TokenProvider;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -16,15 +17,10 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class StompHandler implements ChannelInterceptor {
-    private final ChatFinder chatFinder;
+    private final ChatParticipantFinder chatFinder;
     private final TokenProvider tokenProvider;
-
-    public StompHandler(ChatFinder chatFinder, TokenProvider tokenProvider) {
-        this.chatFinder = chatFinder;
-        this.tokenProvider = tokenProvider;
-        log.info("✅ StompHandler Bean Created");
-    }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
