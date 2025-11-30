@@ -1,7 +1,7 @@
 package com.example.munglogbackend.adapter.chat;
 
 import com.example.munglogbackend.application.chat.provided.ChatSaver;
-import com.example.munglogbackend.domain.chat.dto.ChatMessageDto;
+import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
 import com.fasterxml.jackson.core.JsonProcessingException;

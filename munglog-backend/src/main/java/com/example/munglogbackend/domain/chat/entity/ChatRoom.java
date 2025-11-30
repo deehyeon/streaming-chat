@@ -1,13 +1,11 @@
 package com.example.munglogbackend.domain.chat.entity;
 
+import com.example.munglogbackend.domain.chat.enumerate.ChatRoomType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
 import com.example.munglogbackend.domain.global.AbstractEntity;
 import com.example.munglogbackend.domain.member.Member;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,6 +25,10 @@ public class ChatRoom extends AbstractEntity {
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatMessage> messages = new ArrayList<>();
 
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ChatRoomType chatRoomType;
+
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
@@ -40,12 +42,20 @@ public class ChatRoom extends AbstractEntity {
         return room;
     }
 
-    public static ChatRoom createWithMembers(Collection<Member> members) {
+    public static ChatRoom createPrivateChatRoom(Member memberA, Member memberB) {
         ChatRoom room = create();
-        if (members != null) members.forEach(room::addMember);
+        room.chatRoomType = ChatRoomType.PRIVATE;
+        room.addMember(memberA);
+        room.addMember(memberB);
         return room;
     }
 
+    public static ChatRoom createGroupChatRoom(List<Member> members) {
+        ChatRoom room = create();
+        room.chatRoomType = ChatRoomType.GROUP;
+        members.forEach(room::addMember);
+        return room;
+    }
     public void updateLastMessage(Instant lastMessageAt, String lastMessagePreview) {
         this.lastMessageAt = lastMessageAt;
         this.lastMessagePreview = lastMessagePreview;
