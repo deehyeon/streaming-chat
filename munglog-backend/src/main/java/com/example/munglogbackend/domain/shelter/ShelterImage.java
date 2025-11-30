@@ -7,8 +7,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter
@@ -17,7 +15,6 @@ import org.hibernate.annotations.OnDeleteAction;
 public class ShelterImage extends AbstractEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shelter_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
     private Shelter shelter;
 
     @Column(name = "shelter_image_url", nullable = false)

@@ -94,14 +94,12 @@ public class ShelterController {
     - 수정하고자 하는 필드만 포함하여 요청할 수 있습니다 (PATCH).
     - 주소는 별도의 API로 수정해야 합니다.
     """)
-    @PatchMapping("/{shelterId}")
+    @PatchMapping("/me")
     public ApiResponse<ShelterResponseDto> updateShelter(
             @AuthenticationPrincipal AuthDetails authDetails,
-            @PathVariable Long shelterId,
-            @RequestBody ShelterRequestDto request
+            @RequestBody @Valid ShelterRequestDto request
     ) {
-        shelterSaver.updateShelter(authDetails.getMemberId(), request);
-        return ApiResponse.success(shelterFinder.findShelterById(shelterId));
+        return ApiResponse.success(shelterSaver.updateShelter(authDetails.getMemberId(), request));
     }
 
     // 보호소 주소 등록/수정

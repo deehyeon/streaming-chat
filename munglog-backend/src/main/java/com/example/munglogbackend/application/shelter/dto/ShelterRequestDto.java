@@ -8,6 +8,7 @@ import com.example.munglogbackend.domain.shelter.Shelter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -24,7 +25,7 @@ public record ShelterRequestDto(
         String phone,
 
         @Schema(description = "보호소 이메일", example = "shelter@example.com")
-        @Valid
+        @jakarta.validation.constraints.Email
         String email,
 
         @Schema(description = "보호소 관련 URL 목록", example = "[\"https://shelter.com\", \"https://instagram.com/shelter\"]")
@@ -44,7 +45,7 @@ public record ShelterRequestDto(
         String volunteerInfo,
 
         @Schema(description = "보호소 주소")
-        @Valid
+        @NotNull(message = "주소는 필수입니다.")
         AddressRequest address,
 
         @Schema(description = "보호소 사진 URL 목록", example = "[\"https://image.com/shelter1.jpg\"]")

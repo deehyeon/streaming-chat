@@ -94,9 +94,15 @@ public class Shelter extends AbstractEntity {
     }
 
     public void updateBasicInfo(String name, String phone, Email email) {
-        this.name = name;
-        this.phone = phone;
-        this.email = email;
+        if (name != null) {
+            this.name = name;
+        }
+        if (phone != null) {
+            this.phone = phone;
+        }
+        if (email != null) {
+            this.email = email;
+        }
     }
 
     public void updateUrls(List<String> urls) {
