@@ -28,7 +28,6 @@ import java.util.Objects;
 public class ShelterModifyService implements ShelterSaver {
     private final MemberFinder memberFinder;
     private final ShelterRepository shelterRepository;
-    private final ShelterFinder shelterFinder;
 
     @Override
     public Long createShelter(Long memberId, ShelterRequestDto request) {
@@ -37,11 +36,12 @@ public class ShelterModifyService implements ShelterSaver {
             throw new MemberException(MemberErrorType.INVALID_MEMBER_ROLE);
         }
 
-        if(shelterRepository.findByMember_Id(memberId).isPresent()) {
-            Shelter shelter = request.toEntity(member);
-            Shelter savedShelter = shelterRepository.save(shelter);
-            return savedShelter.getId();
-        } else throw new ShelterException(ShelterErrorType.SHELTER_ALREADY_EXISTS);
+        if (shelterRepository.findByMember_Id(memberId).isPresent()) {
+            throw new ShelterException(ShelterErrorType.SHELTER_ALREADY_EXISTS);
+        }
+        Shelter shelter = request.toEntity(member);
+        Shelter savedShelter = shelterRepository.save(shelter);
+        return savedShelter.getId();
     }
 
     @Override
