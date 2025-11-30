@@ -8,6 +8,7 @@ import com.example.munglogbackend.application.shelter.provided.ShelterFinder;
 import com.example.munglogbackend.application.shelter.provided.ShelterSaver;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
 import com.example.munglogbackend.domain.member.dto.AddressRequest;
+import com.example.munglogbackend.domain.shelter.Shelter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

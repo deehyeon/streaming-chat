@@ -39,6 +39,12 @@ public class ShelterFinderService implements ShelterFinder {
     }
 
     @Override
+    public Shelter findById(Long shelterId) {
+        return shelterRepository.findByIdWithImages(shelterId)
+                .orElseThrow(() -> new ShelterException(ShelterErrorType.SHELTER_NOT_FOUND));
+    }
+
+    @Override
     public Page<ShelterResponseDto> findSheltersByName(String name, Pageable pageable) {
         Page<Shelter> shelters = shelterRepository.findByNameContaining(name, pageable);
         return shelters.map(ShelterResponseDto::from);
