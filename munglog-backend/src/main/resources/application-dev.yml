@@ -1,0 +1,33 @@
+spring:
+  profiles:
+    active: dev
+
+  # H2 Database 설정 (개발용)
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: create-drop  # 개발: 애플리케이션 시작 시 테이블 생성, 종료 시 삭제
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+    defer-datasource-initialization: false  # Hibernate가 먼저 스키마를 생성하도록
+
+  # H2 Console 활성화
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+logging:
+  level:
+    com.example.munglogbackend: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
