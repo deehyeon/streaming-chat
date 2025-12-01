@@ -7,16 +7,28 @@ import (
 	"time"
 )
 
-// ChatMessage 메시지 수신 구조체
+// MessageType 메시지 타입
+type MessageType string
+
+const (
+	MessageTypeText   MessageType = "TEXT"
+	MessageTypeImage  MessageType = "IMAGE"
+	MessageTypeVideo  MessageType = "VIDEO"
+	MessageTypeFile   MessageType = "FILE"
+	MessageTypeAudio  MessageType = "AUDIO"
+	MessageTypeSystem MessageType = "SYSTEM"
+)
+
+// ChatMessage 메시지 수신 구조체 (백엔드 ChatMessageDto와 동일)
 type ChatMessage struct {
-	RoomId    int64   `json:"roomId"`
-	SenderId  int64   `json:"senderId"`
-	Type      string  `json:"type"`
-	Content   string  `json:"content"`
-	FileUrl   *string `json:"fileUrl"`
-	FileName  *string `json:"fileName"`
-	FileSize  *int64  `json:"fileSize"`
-	CreatedAt string  `json:"createdAt"`
+	RoomId    int64       `json:"roomId"`
+	SenderId  int64       `json:"senderId"`
+	Type      MessageType `json:"type"`
+	Content   string      `json:"content"`
+	FileUrl   *string     `json:"fileUrl"`
+	FileName  *string     `json:"fileName"`
+	FileSize  *int64      `json:"fileSize"`
+	CreatedAt string      `json:"createdAt"` // ISO-8601 형식 (Instant)
 }
 
 // CreateConnectFrame STOMP CONNECT 프레임 생성
@@ -38,7 +50,8 @@ func CreateSubscribeFrame(workerID int, token string, roomID int64) string {
 }
 
 // CreateSendFrame STOMP SEND 프레임 생성
-func CreateSendFrame(token string, roomID int64, content string) string {
+// senderID: 실제 인증된 사용자의 memberId (config.MyMemberId 사용)
+func CreateSendFrame(token string, roomID int64, senderID int64, content string) string {
 	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
 
 	return fmt.Sprintf(
@@ -47,7 +60,7 @@ func CreateSendFrame(token string, roomID int64, content string) string {
 			"destination:/publish/%d\n"+
 			"content-type:application/json\n\n"+
 			"{\"roomId\":%d,"+
-			"\"senderId\":1,"+
+			"\"senderId\":%d,"+
 			"\"type\":\"TEXT\","+
 			"\"content\":\"%s\","+
 			"\"fileUrl\":null,"+
@@ -57,6 +70,7 @@ func CreateSendFrame(token string, roomID int64, content string) string {
 		token,
 		roomID,
 		roomID,
+		senderID, // 실제 memberId 사용
 		content,
 		createdAt,
 	)
