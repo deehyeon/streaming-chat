@@ -23,13 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 개발 환경에서 테스트용 Mock 데이터를 로딩하는 Component
- * @Profile("dev") 어노테이션으로 개발 환경에서만 실행됩니다.
+ * 테스트용 Mock 데이터를 로딩하는 Component
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Profile("dev")
+@Profile({"local", "prod"})
 public class DevDataLoader implements CommandLineRunner {
     private final MemberRepository memberRepository;
     private final ShelterRepository shelterRepository;
