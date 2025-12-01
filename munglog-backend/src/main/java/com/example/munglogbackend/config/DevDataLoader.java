@@ -9,7 +9,6 @@ import com.example.munglogbackend.domain.member.Member;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.shelter.Shelter;
 import com.example.munglogbackend.domain.volunteer_application.VolunteerApplication;
-import com.example.munglogbackend.domain.volunteer_application.enumerate.VolunteerApplicationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -83,21 +82,21 @@ public class DevDataLoader implements CommandLineRunner {
                 "김봉사",
                 Email.from("volunteer1@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.VOLUNTEER
         ));
 
         members.add(Member.createSocialMember(
                 "이봉사",
                 Email.from("volunteer2@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.VOLUNTEER
         ));
 
         members.add(Member.createSocialMember(
                 "박봉사",
                 Email.from("volunteer3@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.VOLUNTEER
         ));
 
         // 보호소 소유자 계정 생성
@@ -105,21 +104,21 @@ public class DevDataLoader implements CommandLineRunner {
                 "사랑 보호소 관리자",
                 Email.from("shelter1@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.SHELTER_OWNER
         ));
 
         members.add(Member.createSocialMember(
                 "희망 보호소 관리자",
                 Email.from("shelter2@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.SHELTER_OWNER
         ));
 
         members.add(Member.createSocialMember(
                 "행복 보호소 관리자",
                 Email.from("shelter3@test.com"),
                 passwordEncoder.encode("test1234"),
-                MemberRole.USER
+                MemberRole.SHELTER_OWNER
         ));
 
         return memberRepository.saveAll(members);
