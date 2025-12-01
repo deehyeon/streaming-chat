@@ -46,12 +46,13 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      # application.yml 파일 생성
+      # application.yml 파일들 생성 (공통 + 프로파일별)
       - name: Create application.yml files
         working-directory: ./munglog-backend
         run: |
           mkdir -p src/main/resources
           echo "${{ secrets.APPLICATION_YML }}" > src/main/resources/application.yml
+          echo "${{ secrets.APPLICATION_PROD_YML }}" > src/main/resources/application-prod.yml
 
       - name: Grant execute permission for gradlew
         working-directory: ./munglog-backend
@@ -219,6 +220,7 @@ jobs:
             GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
             GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
             BASE_URL=${BASE_URL}
+            SPRING_PROFILES_ACTIVE=prod
             ENVEOF
             
             chmod 600 .env
