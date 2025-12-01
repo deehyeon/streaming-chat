@@ -3,6 +3,7 @@ package stomp
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,7 +35,7 @@ type ChatMessage struct {
 // CreateConnectFrame STOMP CONNECT 프레임 생성
 func CreateConnectFrame(token string) string {
 	return fmt.Sprintf(
-		"CONNECT\nAuthorization:Bearer %s\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\n\n\u0000",
+		"CONNECT\nAuthorization: Bearer %s\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\n\n\u0000",
 		token,
 	)
 }
@@ -42,7 +43,7 @@ func CreateConnectFrame(token string) string {
 // CreateSubscribeFrame STOMP SUBSCRIBE 프레임 생성
 func CreateSubscribeFrame(workerID int, token string, roomID int64) string {
 	return fmt.Sprintf(
-		"SUBSCRIBE\nid:sub-%d\nAuthorization:Bearer %s\ndestination:/topic/chat/room/%d\n\n\u0000",
+		"SUBSCRIBE\nid:sub-%d\nAuthorization: Bearer %s\ndestination:/topic/chat/room/%d\n\n\u0000",
 		workerID,
 		token,
 		roomID,
@@ -53,16 +54,17 @@ func CreateSubscribeFrame(workerID int, token string, roomID int64) string {
 // senderID: 실제 인증된 사용자의 memberId (config.MyMemberId 사용)
 func CreateSendFrame(token string, roomID int64, senderID int64, content string) string {
 	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
+	escapedContent := strconv.Quote(content)
 
 	return fmt.Sprintf(
 		"SEND\n"+
-			"Authorization:Bearer %s\n"+
+			"Authorization: Bearer %s\n"+
 			"destination:/publish/%d\n"+
 			"content-type:application/json\n\n"+
 			"{\"roomId\":%d,"+
 			"\"senderId\":%d,"+
 			"\"type\":\"TEXT\","+
-			"\"content\":\"%s\","+
+			"\"content\":%s,"+
 			"\"fileUrl\":null,"+
 			"\"fileName\":null,"+
 			"\"fileSize\":null,"+

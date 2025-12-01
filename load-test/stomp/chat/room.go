@@ -30,6 +30,9 @@ type ChatRoomSummary struct {
 
 // CreateGroupRoom 단체 채팅방 생성 함수
 func CreateGroupRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) {
+	if cfg == nil || cfg.HTTPClient == nil {
+		return 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
+	}
 	if cfg.Token == "" || cfg.ServerURL == "" {
 		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
 	}
@@ -87,6 +90,9 @@ func CreateGroupRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) 
 // FetchRoomList 채팅방 목록 조회
 // 백엔드 API는 List<ChatRoomSummary>를 반환함
 func FetchRoomList(cfg *config.Config) (int64, error) {
+	if cfg == nil || cfg.HTTPClient == nil {
+		return 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
+	}
 	if cfg.Token == "" || cfg.ServerURL == "" {
 		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
 	}

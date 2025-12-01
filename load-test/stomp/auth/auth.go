@@ -1,12 +1,12 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"stomp-load-test/config"
-	"strings"
 )
 
 // 로그인 요청 DTO
@@ -43,6 +43,9 @@ type ApiResponse struct {
 
 // Login 자동 로그인 함수
 func Login(cfg *config.Config, email, password string) (string, int64, error) {
+	if cfg == nil || cfg.HTTPClient == nil {
+		return "", 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
+	}
 	if cfg.ServerURL == "" {
 		return "", 0, fmt.Errorf("SERVER_URL이 비어 있습니다")
 	}
@@ -59,7 +62,7 @@ func Login(cfg *config.Config, email, password string) (string, int64, error) {
 		return "", 0, fmt.Errorf("로그인 요청 JSON 생성 실패: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(jsonData))
 	if err != nil {
 		return "", 0, fmt.Errorf("로그인 요청 생성 실패: %w", err)
 	}
