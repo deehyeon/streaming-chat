@@ -77,6 +77,8 @@ munglog-backend/.nb-gradle/
 **/src/main/resources/application*.yml
 **/src/main/resources/application-local.yml
 **/src/main/resources/application-prod.yml
+**/src/main/resources/application-actuator.yml
+**/src/main/resources/application-swagger.yml
 
 ###############################################
 # Go (load-test)
