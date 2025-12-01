@@ -74,7 +74,9 @@ munglog-backend/.nb-gradle/
 ###############################################
 # Spring Boot Sensitive Config Files
 ###############################################
-**/src/main/resources/application.yml
+**/src/main/resources/application*.yml
+**/src/main/resources/application-local.yml
+**/src/main/resources/application-prod.yml
 
 ###############################################
 # Go (load-test)
