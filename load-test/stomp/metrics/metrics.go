@@ -32,6 +32,11 @@ var (
 		Help: "Total number of successful operations",
 	})
 
+	ConnectionRetries = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "stomp_load_test_connection_retries_total",
+		Help: "Total number of connection retry attempts",
+	})
+
 	// Gauge: 현재 상태
 	ActiveConnections = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "stomp_load_test_active_connections",
@@ -41,6 +46,11 @@ var (
 	CurrentStage = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "stomp_load_test_current_stage",
 		Help: "Current test stage number",
+	})
+
+	ActiveReconnections = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "stomp_load_test_active_reconnections",
+		Help: "Number of workers currently attempting to reconnect",
 	})
 
 	// Histogram: 지연시간 분포
@@ -62,6 +72,18 @@ var (
 		Buckets: []float64{10, 25, 50, 100, 250, 500, 1000},
 	})
 
+	WebSocketConnectionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "stomp_load_test_websocket_duration_seconds",
+		Help:    "WebSocket connection duration in seconds",
+		Buckets: []float64{10, 30, 60, 120, 300, 600, 1800, 3600},
+	})
+
+	ReconnectionTime = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "stomp_load_test_reconnection_time_ms",
+		Help:    "Time taken to reconnect after disconnect",
+		Buckets: []float64{100, 500, 1000, 2000, 5000, 10000, 30000},
+	})
+
 	// Summary: 백분위 계산
 	MessageLatencySummary = promauto.NewSummary(prometheus.SummaryOpts{
 		Name:       "stomp_load_test_message_latency_summary_ms",
@@ -74,4 +96,5 @@ var (
 func ResetMetrics() {
 	ActiveConnections.Set(0)
 	CurrentStage.Set(0)
+	ActiveReconnections.Set(0)
 }
