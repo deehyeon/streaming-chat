@@ -42,6 +42,7 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 
 	var conn *websocket.Conn
 	var err error
+	var retryCount int
 
 	// Exponential Backoff 설정
 	expBackoff := backoff.NewExponentialBackOff()
@@ -57,6 +58,10 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 	// Context 연동
 	backoffWithContext := backoff.WithContext(backoffWithMaxRetries, ctx)
 
+	// 재연결 시작 시 한 번만 Inc
+	metrics.ActiveReconnections.Inc()
+	defer metrics.ActiveReconnections.Dec()
+
 	operation := func() error {
 		select {
 		case <-ctx.Done():
@@ -68,10 +73,9 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 		if err != nil {
 			log.Printf("Worker %d 연결 실패, 재시도 중... %v\n", workerID, err)
 			metrics.ConnectionRetries.Inc()
-			metrics.ActiveReconnections.Inc()
+			retryCount++
 			return err
 		}
-		metrics.ActiveReconnections.Dec()
 		return nil
 	}
 
@@ -79,12 +83,11 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 	reconnectStart := time.Now()
 	err = backoff.Retry(operation, backoffWithContext)
 	if err != nil {
-		metrics.ActiveReconnections.Dec()
 		return nil, fmt.Errorf("Worker %d 최대 재시도 횟수 초과: %w", workerID, err)
 	}
 
-	// 재연결 소요 시간 기록
-	if metrics.ConnectionRetries.Desc().String() != "" { // 재연결이 있었다면
+	// 재연결이 실제로 발생했을 때만 시간 기록
+	if retryCount > 0 {
 		reconnectDuration := float64(time.Since(reconnectStart).Milliseconds())
 		metrics.ReconnectionTime.Observe(reconnectDuration)
 	}
@@ -108,6 +111,7 @@ func PerformStompHandshake(conn *websocket.Conn, cfg *config.Config, workerID in
 	if _, _, err := conn.ReadMessage(); err != nil {
 		return fmt.Errorf("STOMP CONNECTED 수신 실패: %w", err)
 	}
+	conn.SetReadDeadline(time.Time{}) // Clear deadline
 
 	return nil
 }
