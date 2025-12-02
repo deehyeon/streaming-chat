@@ -63,9 +63,8 @@ public class SecurityConfig {
                                 ).permitAll()
                                 .requestMatchers(
                                         "/v1/auth/signup/**",
-                                        "/actuator/health/readiness",
-                                        "/actuator/health/liveness",
                                         "/actuator/health/**",
+                                        "/actuator/prometheus",
                                         "/v1/auth/login"
                                 ).permitAll()
                                 .anyRequest().authenticated()

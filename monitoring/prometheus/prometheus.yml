@@ -1,6 +1,7 @@
 # monitoring/prometheus/prometheus.yml
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
   # Prometheus 자체
@@ -28,10 +29,14 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:2112']
 
-  # Spring Boot (아직 설정 안 됨)
+  # Spring Boot
   - job_name: 'spring-boot'
+    scrape_interval: 5s
     static_configs:
       - targets: ['host.docker.internal:8080']
+        labels:
+          application: 'stomp-chat-server'
+          environment: 'local'
     metrics_path: '/actuator/prometheus'
 
   # Mac/Windows에서 host.docker.internal이 작동하지 않으면 아래 주석 해제

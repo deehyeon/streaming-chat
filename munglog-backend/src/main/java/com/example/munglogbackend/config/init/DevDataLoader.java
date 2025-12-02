@@ -1,4 +1,4 @@
-package com.example.munglogbackend.config;
+package com.example.munglogbackend.config.init;
 
 import com.example.munglogbackend.application.member.required.MemberRepository;
 import com.example.munglogbackend.application.shelter.required.ShelterRepository;
@@ -6,6 +6,8 @@ import com.example.munglogbackend.application.volunteer_application.required.Vol
 import com.example.munglogbackend.domain.global.vo.Address;
 import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.Member;
+import com.example.munglogbackend.domain.member.dto.AddressRequest;
+import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.shelter.Shelter;
 import com.example.munglogbackend.domain.volunteer_application.VolunteerApplication;
@@ -76,48 +78,68 @@ public class DevDataLoader implements CommandLineRunner {
     private List<Member> createMembers() {
         List<Member> members = new ArrayList<>();
 
+        // Admin 계정 생성
+        members.add(Member.createSocialMember(
+                "관리자",
+                Email.from("admin@test.com"),
+                passwordEncoder.encode("test1234"),
+                MemberRole.ADMIN
+        ));
+
         // 봉사자 계정 생성
-        members.add(Member.createSocialMember(
-                "김봉사",
-                Email.from("volunteer1@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "봉사자1",
+                "volunteer1@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.VOLUNTEER
+                MemberRole.VOLUNTEER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+                )
         ));
 
-        members.add(Member.createSocialMember(
-                "이봉사",
-                Email.from("volunteer2@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "봉사자2",
+                "volunteer2@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.VOLUNTEER
+                MemberRole.VOLUNTEER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+                )
         ));
 
-        members.add(Member.createSocialMember(
-                "박봉사",
-                Email.from("volunteer3@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "봉사자3",
+                "volunteer3@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.VOLUNTEER
+                MemberRole.VOLUNTEER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+                )
         ));
 
         // 보호소 소유자 계정 생성
-        members.add(Member.createSocialMember(
-                "사랑 보호소 관리자",
-                Email.from("shelter1@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "보호소1",
+                "shelter1@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.SHELTER_OWNER
+                MemberRole.SHELTER_OWNER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+                )
         ));
 
-        members.add(Member.createSocialMember(
-                "희망 보호소 관리자",
-                Email.from("shelter2@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "보호소2",
+                "shelter2@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.SHELTER_OWNER
+                MemberRole.SHELTER_OWNER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+            )
         ));
 
-        members.add(Member.createSocialMember(
-                "행복 보호소 관리자",
-                Email.from("shelter3@test.com"),
+        members.add(Member.create(new MemberSignUpRequest(
+                "보호소3",
+                "shelter3@test.com",
                 passwordEncoder.encode("test1234"),
-                MemberRole.SHELTER_OWNER
+                MemberRole.SHELTER_OWNER,
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
+            )
         ));
 
         return memberRepository.saveAll(members);
@@ -131,7 +153,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 보호소 1: 사랑 동물보호소 (서울 강남구)
         Shelter shelter1 = Shelter.createShelter(
-                members.get(3), // 첫 번째 보호소 소유자
+                members.get(4), // 첫 번째 보호소 소유자
                 "사랑 동물보호소",
                 "02-1234-5678",
                 Email.from("love@shelter.com"),
@@ -157,7 +179,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 보호소 2: 희망 동물의집 (경기도 성남시)
         Shelter shelter2 = Shelter.createShelter(
-                members.get(4), // 두 번째 보호소 소유자
+                members.get(5), // 두 번째 보호소 소유자
                 "희망 동물의집",
                 "031-8765-4321",
                 Email.from("hope@shelter.com"),
@@ -181,7 +203,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 보호소 3: 행복 동물보호센터 (인천 연수구)
         Shelter shelter3 = Shelter.createShelter(
-                members.get(5), // 세 번째 보호소 소유자
+                members.get(6), // 세 번째 보호소 소유자
                 "행복 동물보호센터",
                 "032-9876-5432",
                 Email.from("happy@shelter.com"),
@@ -215,7 +237,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자1이 사랑 보호소에 신청 (PENDING)
         VolunteerApplication app1 = VolunteerApplication.createApplication(
-                members.get(0), // 봉사자1
+                members.get(1), // 봉사자1
                 shelters.get(0), // 사랑 보호소
                 today.plusDays(5),
                 LocalTime.of(10, 0),
@@ -226,7 +248,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자1이 희망 보호소에 신청 (APPROVED)
         VolunteerApplication app2 = VolunteerApplication.createApplication(
-                members.get(0), // 봉사자1
+                members.get(1), // 봉사자1
                 shelters.get(1), // 희망 보호소
                 today.plusDays(7),
                 LocalTime.of(13, 0),
@@ -238,7 +260,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자2가 사랑 보호소에 신청 (PENDING)
         VolunteerApplication app3 = VolunteerApplication.createApplication(
-                members.get(1), // 봉사자2
+                members.get(2), // 봉사자2
                 shelters.get(0), // 사랑 보호소
                 today.plusDays(10),
                 LocalTime.of(9, 0),
@@ -249,7 +271,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자2가 행복 보호소에 신청 (REJECTED)
         VolunteerApplication app4 = VolunteerApplication.createApplication(
-                members.get(1), // 봉사자2
+                members.get(2), // 봉사자2
                 shelters.get(2), // 행복 보호소
                 today.plusDays(3),
                 LocalTime.of(14, 0),
@@ -261,7 +283,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자3이 희망 보호소에 신청 (APPROVED)
         VolunteerApplication app5 = VolunteerApplication.createApplication(
-                members.get(2), // 봉사자3
+                members.get(3), // 봉사자3
                 shelters.get(1), // 희망 보호소
                 today.plusDays(6),
                 LocalTime.of(10, 0),
@@ -273,7 +295,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자3이 행복 보호소에 신청 (PENDING)
         VolunteerApplication app6 = VolunteerApplication.createApplication(
-                members.get(2), // 봉사자3
+                members.get(3), // 봉사자3
                 shelters.get(2), // 행복 보호소
                 today.plusDays(12),
                 LocalTime.of(11, 0),
@@ -284,7 +306,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 봉사자1이 행복 보호소에 신청 (CANCELLED)
         VolunteerApplication app7 = VolunteerApplication.createApplication(
-                members.get(0), // 봉사자1
+                members.get(1), // 봉사자1
                 shelters.get(2), // 행복 보호소
                 today.plusDays(8),
                 LocalTime.of(13, 0),

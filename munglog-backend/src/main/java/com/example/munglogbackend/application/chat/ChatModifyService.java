@@ -9,6 +9,7 @@ import com.example.munglogbackend.application.chat.required.ChatRoomRepository;
 import com.example.munglogbackend.application.member.provided.MemberFinder;
 import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.application.chat.dto.ChatRoomSummary;
+import com.example.munglogbackend.config.monitoring.WebSocketMetricsConfig;
 import com.example.munglogbackend.domain.chat.entity.ChatMessage;
 import com.example.munglogbackend.domain.chat.entity.ChatParticipant;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
@@ -16,6 +17,7 @@ import com.example.munglogbackend.domain.chat.enumerate.ChatRoomType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
 import com.example.munglogbackend.domain.member.Member;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -38,6 +40,7 @@ public class ChatModifyService implements ChatSaver {
     private final ChatMessageRepository chatMessageRepository;
 
     private final SimpMessagingTemplate messagingTemplate;     // STOMP 브로드캐스트
+    private final WebSocketMetricsConfig metricsConfig;
 
     @Override
     public Long createPrivateChatRoom(Long memberAId, Long memberBId) {
@@ -88,36 +91,56 @@ public class ChatModifyService implements ChatSaver {
 
     @Override
     public ChatMessage sendMessage(ChatMessageDto request) {
-        // 채팅방 및 발신자 검증
-        ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(request.roomId());
-        Member sender = memberFinder.findActiveById(request.senderId());
-        chatParticipantFinder.findByRoomIdAndMemberId(chatRoom.getId(), sender.getId());
+        Timer.Sample sample = metricsConfig.startTimer();
 
-        // 채팅 메시지 저장
-        long seq = chatMessageFinder.findLatestMessageSeq(request.roomId()) + 1;
-        ChatMessage chatMessage = ChatMessage.create(request, seq, chatRoom, sender);
-        ChatMessage saved = chatMessageRepository.save(chatMessage);
-        chatRoom.updateLastMessage(saved.getCreatedAt(), saved.getContent());
+        try {
+            // 채팅방 및 발신자 검증
+            ChatRoom chatRoom = chatRoomFinder.findRoomByRoomId(request.roomId());
+            Member sender = memberFinder.findActiveById(request.senderId());
+            chatParticipantFinder.findByRoomIdAndMemberId(chatRoom.getId(), sender.getId());
 
-        // 발신자 본인의 읽음 처리 업데이트
-        updateLastRead(request.roomId(), request.senderId());
-        long currentSeq = chatMessageFinder.findLatestMessageSeq(request.roomId());
+            // 채팅 메시지 저장
+            long seq = chatMessageFinder.findLatestMessageSeq(request.roomId()) + 1;
+            ChatMessage chatMessage = ChatMessage.create(request, seq, chatRoom, sender);
+            ChatMessage saved = chatMessageRepository.save(chatMessage);
+            chatRoom.updateLastMessage(saved.getCreatedAt(), saved.getContent());
 
-        // STOMP 채팅방으로 브로드캐스트
-        messagingTemplate.convertAndSend("/topic/chat/room/" + request.roomId(), toPayload(chatMessage));
+            // 발신자 본인의 읽음 처리 업데이트
+            updateLastRead(request.roomId(), request.senderId());
+            long currentSeq = chatMessageFinder.findLatestMessageSeq(request.roomId());
 
-        // 채팅방 요약 정보 개인 토픽으로 전송
-        List<ChatParticipant> chatRoomMembers = chatParticipantFinder.findChatParticipants(request.roomId());
-        for (ChatParticipant participant : chatRoomMembers) {
-            Long memberId = participant.getMember().getId();
+            // STOMP 채팅방으로 브로드캐스트
+            String destination = "/topic/chat/room/" + request.roomId();
+            messagingTemplate.convertAndSend(destination, toPayload(chatMessage));
 
-            // 읽지 않은 메시지 수 계산
-            long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
+            // 메시지 전송 카운트 추가
+            metricsConfig.recordMessageSent("chat_message", true);
 
-            messagingTemplate.convertAndSend("/topic/user." + memberId + ".room-summary", ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
-            log.info("📡 [convertAndSend] 개인 토픽 전송: /topic/user.{}.room-summary", memberId);
+            // 채팅방 요약 정보 개인 토픽으로 전송
+            List<ChatParticipant> chatRoomMembers = chatParticipantFinder.findChatParticipants(request.roomId());
+            for (ChatParticipant participant : chatRoomMembers) {
+                Long memberId = participant.getMember().getId();
+
+                // 읽지 않은 메시지 수 계산
+                long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
+
+                String userDestination = "/topic/user." + memberId + ".room-summary";
+                messagingTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
+
+                // 개인 토픽 전송도 카운트
+                metricsConfig.recordMessageSent("user_room_summary", false);
+
+                log.info("📡 [convertAndSend] 개인 토픽 전송: /topic/user.{}.room-summary", memberId);
+            }
+            return chatMessage;
+
+        } catch (Exception e) {
+            metricsConfig.recordMessageFailure();
+            log.error("메시지 전송 실패", e);
+            throw e;
+        } finally {
+            metricsConfig.stopTimer(sample, "send_message");
         }
-        return chatMessage;
     }
 
     @Override

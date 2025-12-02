@@ -1,6 +1,4 @@
 # monitoring/docker-compose.yml
-version: '3.8'
-
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -39,10 +37,9 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
-    pid: "host"
     restart: unless-stopped
     volumes:
-      - /:/host:ro,rslave
+      - /:/host:ro
     command:
       - '--path.rootfs=/host'
     ports:
@@ -53,6 +50,8 @@ services:
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
+    env_file:
+      - ./.env
     environment:
       DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@munglog-db:5432/${POSTGRES_DB}?sslmode=disable"
     ports:
