@@ -65,24 +65,33 @@ func SendMessage(conn *websocket.Conn, cfg *config.Config, workerID int, nonce i
 	// 메시지 content에 고유 키 포함
 	content := fmt.Sprintf("[%s] Test message from worker %d", messageKey, workerID)
 
+	// JSON 메시지 생성 (안전하게)
+	msgBody := ChatMessage{
+		RoomId:    cfg.RoomID,
+		SenderId:  1,
+		Type:      "TEXT",
+		Content:   content,
+		FileUrl:   nil,
+		FileName:  nil,
+		FileSize:  nil,
+		CreatedAt: createdAt,
+	}
+
+	bodyBytes, err := json.Marshal(msgBody)
+	if err != nil {
+		PendingMessages.Delete(messageKey)
+		return fmt.Errorf("JSON 직렬화 실패: %w", err)
+	}
+
 	sendFrame := fmt.Sprintf(
 		"SEND\n"+
 			"Authorization:Bearer %s\n"+
 			"destination:/publish/%d\n"+
 			"content-type:application/json\n\n"+
-			"{\"roomId\":%d,"+
-			"\"senderId\":1,"+
-			"\"type\":\"TEXT\","+
-			"\"content\":\"%s\","+
-			"\"fileUrl\":null,"+
-			"\"fileName\":null,"+
-			"\"fileSize\":null,"+
-			"\"createdAt\":\"%s\"}\u0000",
+			"%s\u0000",
 		cfg.Token,
 		cfg.RoomID,
-		cfg.RoomID,
-		content,
-		createdAt,
+		string(bodyBytes),
 	)
 
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
