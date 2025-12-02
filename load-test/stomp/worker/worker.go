@@ -2,12 +2,11 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"stomp-load-test/config"
+	"stomp-load-test/connection"
+	"stomp-load-test/messaging"
 	"stomp-load-test/metrics"
-	"stomp-load-test/stomp"
-	ws "stomp-load-test/websocket"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,152 +15,48 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// SharedData 워커들이 공유하는 데이터
-type SharedData struct {
-	ResultsMutex             sync.Mutex
-	WebSocketConnectTimeList []float64
-	StompConnectTimeList     []float64
-	MessageLatencyList       []float64
-
-	SendMessageCount    *atomic.Int64
-	ReceiveMessageCount *atomic.Int64
-	ErrorCount          *atomic.Int64
-	SuccessCount        *atomic.Int64
-	ActiveConnections   *atomic.Int64
-
-	PendingMessages *sync.Map // key: "workerID-nonce", value: time.Time
+// Worker represents a single load test worker
+type Worker struct {
+	ID                      int
+	Config                  *config.Config
+	ErrorCount              *atomic.Int64
+	SuccessCount            *atomic.Int64
+	MessageLatencyList      *[]float64
+	WebSocketConnectTimeList *[]float64
+	StompConnectTimeList    *[]float64
+	ResultsMutex            *sync.Mutex
 }
 
-// NewSharedData 공유 데이터 초기화
-func NewSharedData() *SharedData {
-	return &SharedData{
-		WebSocketConnectTimeList: []float64{},
-		StompConnectTimeList:     []float64{},
-		MessageLatencyList:       []float64{},
-		SendMessageCount:         &atomic.Int64{},
-		ReceiveMessageCount:      &atomic.Int64{},
-		ErrorCount:               &atomic.Int64{},
-		SuccessCount:             &atomic.Int64{},
-		ActiveConnections:        &atomic.Int64{},
-		PendingMessages:          &sync.Map{},
-	}
-}
-
-// CleanupPendingMessages pending 메시지 타임아웃 정리 고루틴
-func CleanupPendingMessages(ctx context.Context, pendingMessages *sync.Map, timeout time.Duration) {
-	ticker := time.NewTicker(timeout / 2) // 타임아웃의 절반마다 체크
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			now := time.Now()
-			pendingMessages.Range(func(key, value interface{}) bool {
-				sentTime := value.(time.Time)
-				if now.Sub(sentTime) > timeout {
-					pendingMessages.Delete(key)
-				}
-				return true
-			})
-		}
-	}
-}
-
-// readLoop 메시지 읽기 고루틴
-func readLoop(conn *websocket.Conn, cfg *config.Config, workerID int, shared *SharedData, ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			// 읽기 타임아웃 설정
-			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-			_, raw, err := conn.ReadMessage()
-			if err != nil {
-				if ctx.Err() != nil {
-					return // context cancelled
-				}
-				// 타임아웃은 정상적인 상황, 다시 시도
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					return
-				}
-				if strings.Contains(err.Error(), "timeout") {
-					continue
-				}
-				// 실제 오류
-				log.Printf("Worker %d 메시지 수신 오류: %v\n", workerID, err)
-				shared.ErrorCount.Add(1)
-				metrics.ErrorsTotal.Inc()
-				return
-			}
-
-			frame := string(raw)
-
-			// STOMP MESSAGE 프레임 파싱
-			msg, err := stomp.ParseMessage(frame)
-			if err != nil {
-				continue
-			}
-
-			// roomId 확인
-			if msg.RoomId != cfg.RoomID {
-				continue
-			}
-
-			// 자기가 보낸 메시지인지 content 기반으로 확인
-			messageKey := stomp.ExtractMessageKey(msg.Content)
-			if messageKey == "" {
-				continue
-			}
-
-			// 자기 워커의 메시지인지 확인
-			if !strings.HasPrefix(messageKey, fmt.Sprintf("W%d-", workerID)) {
-				continue
-			}
-
-			// pending에서 찾아서 latency 계산
-			if sentTimeVal, ok := shared.PendingMessages.LoadAndDelete(messageKey); ok {
-				sentTime := sentTimeVal.(time.Time)
-				latency := float64(time.Since(sentTime).Microseconds()) / 1000.0 // ms
-
-				// Prometheus 메트릭 업데이트
-				metrics.MessageLatency.Observe(latency)
-				metrics.MessageLatencySummary.Observe(latency)
-				metrics.MessagesReceived.Inc()
-
-				// 슬라이스에도 저장
-				shared.ResultsMutex.Lock()
-				shared.MessageLatencyList = append(shared.MessageLatencyList, latency)
-				shared.ResultsMutex.Unlock()
-
-				shared.ReceiveMessageCount.Add(1)
-				shared.SuccessCount.Add(1)
-				metrics.SuccessTotal.Inc()
-			}
-		}
-	}
-}
-
-// Run 워커 실행
-func Run(id int, wg *sync.WaitGroup, cfg *config.Config, shared *SharedData, ctx context.Context) {
+// Run executes the worker logic
+func (w *Worker) Run(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
-	// 활성 연결 수 증가
-	shared.ActiveConnections.Add(1)
-	metrics.ActiveConnections.Inc()
+	connectionStartTime := time.Now()
 	defer func() {
-		shared.ActiveConnections.Add(-1)
-		metrics.ActiveConnections.Dec()
+		// 연결 유지 시간 기록
+		duration := time.Since(connectionStartTime).Seconds()
+		metrics.WebSocketConnectionDuration.Observe(duration)
 	}()
 
-	// WebSocket 연결 시작
+	// 재연결 로직 활성화 여부에 따라 처리
+	if w.Config.EnableReconnect {
+		w.runWithReconnect(ctx, connectionStartTime)
+	} else {
+		w.runOnce(ctx, connectionStartTime)
+	}
+}
+
+// runOnce runs worker without reconnection
+func (w *Worker) runOnce(ctx context.Context, connectionStartTime time.Time) {
+	metrics.ActiveConnections.Inc()
+	defer metrics.ActiveConnections.Dec()
+
+	// WebSocket 연결
 	webSocketStart := time.Now()
-	conn, err := ws.Connect(cfg, id)
+	conn, err := connection.ConnectWebSocket(w.Config, w.ID)
 	if err != nil {
-		log.Printf("Worker %d WebSocket 연결 실패: %v\n", id, err)
-		shared.ErrorCount.Add(1)
+		log.Printf("Worker %d WebSocket 연결 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
 		metrics.ErrorsTotal.Inc()
 		return
 	}
@@ -170,52 +65,151 @@ func Run(id int, wg *sync.WaitGroup, cfg *config.Config, shared *SharedData, ctx
 	webSocketConnectTime := float64(time.Since(webSocketStart).Microseconds()) / 1000.0
 	metrics.WebSocketConnectTime.Observe(webSocketConnectTime)
 
-	// 연결 시간 저장
-	shared.ResultsMutex.Lock()
-	shared.WebSocketConnectTimeList = append(shared.WebSocketConnectTimeList, webSocketConnectTime)
-	shared.ResultsMutex.Unlock()
+	w.ResultsMutex.Lock()
+	*w.WebSocketConnectTimeList = append(*w.WebSocketConnectTimeList, webSocketConnectTime)
+	w.ResultsMutex.Unlock()
 
-	// STOMP CONNECT 프레임 전송
-	connectFrame := stomp.CreateConnectFrame(cfg.Token)
-
+	// STOMP 핸드셰이크
 	stompConnectStart := time.Now()
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(connectFrame)); err != nil {
-		log.Printf("Worker %d STOMP CONNECT 실패: %v\n", id, err)
-		shared.ErrorCount.Add(1)
+	if err := connection.PerformStompHandshake(conn, w.Config, w.ID); err != nil {
+		log.Printf("Worker %d STOMP 핸드셰이크 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
 		metrics.ErrorsTotal.Inc()
 		return
 	}
 
-	// CONNECTED 프레임 수신 대기
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	if _, _, err := conn.ReadMessage(); err != nil {
-		log.Printf("Worker %d STOMP CONNECTED 수신 실패: %v\n", id, err)
-		shared.ErrorCount.Add(1)
-		metrics.ErrorsTotal.Inc()
-		return
-	}
 	stompConnectTime := float64(time.Since(stompConnectStart).Microseconds()) / 1000.0
 	metrics.StompConnectTime.Observe(stompConnectTime)
 
-	// 연결 시간 저장
-	shared.ResultsMutex.Lock()
-	shared.StompConnectTimeList = append(shared.StompConnectTimeList, stompConnectTime)
-	shared.ResultsMutex.Unlock()
+	w.ResultsMutex.Lock()
+	*w.StompConnectTimeList = append(*w.StompConnectTimeList, stompConnectTime)
+	w.ResultsMutex.Unlock()
 
-	// 구독 메시지 전송
-	subscribeFrame := stomp.CreateSubscribeFrame(id, cfg.Token, cfg.RoomID)
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(subscribeFrame)); err != nil {
-		log.Printf("Worker %d 구독 실패: %v\n", id, err)
-		shared.ErrorCount.Add(1)
+	// 구독
+	if err := connection.Subscribe(conn, w.Config, w.ID); err != nil {
+		log.Printf("Worker %d 구독 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
 		metrics.ErrorsTotal.Inc()
 		return
 	}
 
-	// 메시지 수신을 위한 고루틴 시작
-	go readLoop(conn, cfg, id, shared, ctx)
+	// 메시지 송수신
+	w.runMessageLoop(conn, ctx)
+}
 
-	// 주기적으로 메시지 전송
-	ticker := time.NewTicker(cfg.MessageInterval)
+// runWithReconnect runs worker with reconnection support
+func (w *Worker) runWithReconnect(ctx context.Context, connectionStartTime time.Time) {
+	reconnectAttempts := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		// 연결 시도
+		if !w.connectAndRun(ctx, &reconnectAttempts) {
+			// 재연결 불가능하면 종료
+			return
+		}
+
+		// Context가 종료되었으면 정상 종료
+		if ctx.Err() != nil {
+			return
+		}
+
+		// 재연결 시도
+		reconnectAttempts++
+		if reconnectAttempts > w.Config.MaxReconnectAttempts {
+			log.Printf("Worker %d 최대 재연결 횟수 초과, 종료\n", w.ID)
+			return
+		}
+
+		backoffTime := time.Duration(reconnectAttempts*reconnectAttempts) * time.Second
+		log.Printf("Worker %d 재연결 시도 (%d/%d), %v 후...\n",
+			w.ID, reconnectAttempts, w.Config.MaxReconnectAttempts, backoffTime)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoffTime):
+			continue
+		}
+	}
+}
+
+// connectAndRun connects and runs message loop, returns true if reconnection should be attempted
+func (w *Worker) connectAndRun(ctx context.Context, reconnectAttempts *int) bool {
+	metrics.ActiveConnections.Inc()
+	defer metrics.ActiveConnections.Dec()
+
+	// WebSocket 연결 (재연결 로직 포함)
+	webSocketStart := time.Now()
+	conn, err := connection.ConnectWithRetry(ctx, w.Config, w.ID)
+	if err != nil {
+		log.Printf("Worker %d 연결 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
+		metrics.ErrorsTotal.Inc()
+		return false // 재연결 불가
+	}
+	defer conn.Close()
+
+	webSocketConnectTime := float64(time.Since(webSocketStart).Microseconds()) / 1000.0
+	metrics.WebSocketConnectTime.Observe(webSocketConnectTime)
+
+	w.ResultsMutex.Lock()
+	*w.WebSocketConnectTimeList = append(*w.WebSocketConnectTimeList, webSocketConnectTime)
+	w.ResultsMutex.Unlock()
+
+	// STOMP 핸드셰이크
+	stompConnectStart := time.Now()
+	if err := connection.PerformStompHandshake(conn, w.Config, w.ID); err != nil {
+		log.Printf("Worker %d STOMP 핸드셰이크 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
+		metrics.ErrorsTotal.Inc()
+		return true // 재연결 시도
+	}
+
+	stompConnectTime := float64(time.Since(stompConnectStart).Microseconds()) / 1000.0
+	metrics.StompConnectTime.Observe(stompConnectTime)
+
+	w.ResultsMutex.Lock()
+	*w.StompConnectTimeList = append(*w.StompConnectTimeList, stompConnectTime)
+	w.ResultsMutex.Unlock()
+
+	// 구독
+	if err := connection.Subscribe(conn, w.Config, w.ID); err != nil {
+		log.Printf("Worker %d 구독 실패: %v\n", w.ID, err)
+		w.ErrorCount.Add(1)
+		metrics.ErrorsTotal.Inc()
+		return true // 재연결 시도
+	}
+
+	// 연결 성공 시 재연결 카운트 리셋
+	*reconnectAttempts = 0
+
+	// 메시지 송수신
+	disconnected := w.runMessageLoop(conn, ctx)
+	return disconnected // 의도하지 않은 연결 끊김이면 true
+}
+
+// runMessageLoop runs the message send/receive loop, returns true if disconnected unexpectedly
+func (w *Worker) runMessageLoop(conn *websocket.Conn, ctx context.Context) bool {
+	// 메시지 수신 고루틴
+	disconnected := make(chan bool, 1)
+	go func() {
+		messaging.ReadLoop(conn, w.Config, w.ID, ctx, w.ErrorCount, w.SuccessCount, w.MessageLatencyList, w.ResultsMutex)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			disconnected <- true
+		}
+	}()
+
+	// 메시지 전송
+	ticker := time.NewTicker(w.Config.MessageInterval)
 	defer ticker.Stop()
 
 	var nonce int64 = 0
@@ -223,33 +217,23 @@ func Run(id int, wg *sync.WaitGroup, cfg *config.Config, shared *SharedData, ctx
 	for {
 		select {
 		case <-ctx.Done():
-			// 스테이지 종료
-			return
+			return false // 정상 종료
+		case <-disconnected:
+			return true // 의도하지 않은 연결 끊김
 		case <-ticker.C:
-			// 메시지 전송
 			nonce++
-			messageKey := stomp.MakeMessageKey(id, nonce)
-			sentTime := time.Now()
-
-			// pending에 저장
-			shared.PendingMessages.Store(messageKey, sentTime)
-
-			// 메시지 content에 고유 키 포함
-			content := fmt.Sprintf("[%s] Test message from worker %d", messageKey, id)
-
-			sendFrame := stomp.CreateSendFrame(cfg.Token, cfg.RoomID, cfg.MyMemberId, content)
-
-			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(sendFrame)); err != nil {
-				log.Printf("Worker %d 메시지 전송 실패: %v\n", id, err)
-				shared.ErrorCount.Add(1)
-				metrics.ErrorsTotal.Inc()
-				shared.PendingMessages.Delete(messageKey)
-				// 연결 끊어짐, 종료
-				return
+			if err := messaging.SendMessage(conn, w.Config, w.ID, nonce); err != nil {
+				if ctx.Err() != nil {
+					return false // context cancelled, 정상 종료
+				}
+				// 전송 실패 - 연결 문제
+				if !strings.Contains(err.Error(), "timeout") {
+					log.Printf("Worker %d 메시지 전송 실패: %v\n", w.ID, err)
+					w.ErrorCount.Add(1)
+					metrics.ErrorsTotal.Inc()
+					return true // 재연결 필요
+				}
 			}
-			shared.SendMessageCount.Add(1)
-			metrics.MessagesSent.Inc()
 		}
 	}
 }
