@@ -17,6 +17,12 @@ type Config struct {
 	MessageInterval time.Duration
 	HTTPClient      *http.Client
 	MyMemberId      int64
+
+	// Reconnection settings
+	EnableReconnect      bool
+	MaxReconnectAttempts int
+	InitialBackoffMs     int
+	MaxBackoffMs         int
 }
 
 type Stage struct {
@@ -28,6 +34,7 @@ type Stage struct {
 var (
 	// 스테이지 설정 - 10,000명 동시 접속 테스트
 	Stages = []Stage{
+		{1000, "워밍업", 60},
 		{3000, "중간 트래픽 정밀 측정", 300},
 	}
 )
@@ -58,10 +65,29 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Reconnection 설정
+	cfg.EnableReconnect = os.Getenv("ENABLE_RECONNECT") == "true"
+	cfg.MaxReconnectAttempts = getEnvInt("MAX_RECONNECT_ATTEMPTS", 5)
+	cfg.InitialBackoffMs = getEnvInt("INITIAL_BACKOFF_MS", 1000)
+	cfg.MaxBackoffMs = getEnvInt("MAX_BACKOFF_MS", 30000)
+
 	log.Println("환경 변수 로드 완료")
 	log.Printf("SERVER_URL=%s, MESSAGE_INTERVAL=%v\n", cfg.ServerURL, cfg.MessageInterval)
+	if cfg.EnableReconnect {
+		log.Printf("재연결 활성화: MAX_ATTEMPTS=%d, INITIAL_BACKOFF=%dms, MAX_BACKOFF=%dms\n",
+			cfg.MaxReconnectAttempts, cfg.InitialBackoffMs, cfg.MaxBackoffMs)
+	}
 
 	return cfg, nil
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if val := os.Getenv(key); val != "" {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+	}
+	return defaultValue
 }
 
 func (c *Config) SetToken(token string) {
