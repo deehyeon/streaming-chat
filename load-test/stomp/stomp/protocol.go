@@ -73,7 +73,7 @@ func CreateSendFrame(token string, roomID int64, senderID int64, content string)
 		roomID,
 		roomID,
 		senderID, // 실제 memberId 사용
-		content,
+		escapedContent,
 		createdAt,
 	)
 }

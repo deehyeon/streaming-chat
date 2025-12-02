@@ -7,22 +7,22 @@ scrape_configs:
   # Prometheus 자체
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['158.180.75.249:9090']
 
   # PostgreSQL
   - job_name: 'postgres'
     static_configs:
-      - targets: ['postgres-exporter:9187']
+      - targets: ['158.180.75.249r:9187']
 
   # Redis
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis-exporter:9121']
+      - targets: ['158.180.75.249:9121']
 
   # Node (시스템)
   - job_name: 'node'
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ['158.180.75.249:9100']
 
   # Go 부하테스트 도구 (실행 시에만)
   - job_name: 'stomp-load-test'
@@ -33,7 +33,7 @@ scrape_configs:
   - job_name: 'spring-boot'
     scrape_interval: 5s
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: ['158.180.75.249:8080']
         labels:
           application: 'stomp-chat-server'
           environment: 'local'

@@ -10,13 +10,11 @@ import (
 	"stomp-load-test/auth"
 	"stomp-load-test/chat"
 	"stomp-load-test/config"
-	"stomp-load-test/messaging"
 	"stomp-load-test/metrics"
 	"stomp-load-test/reports"
 	"stomp-load-test/worker"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -24,16 +22,8 @@ import (
 )
 
 var (
-	// 동시성 안전한 데이터 수집
-	resultsMutex             sync.Mutex
-	webSocketConnectTimeList []float64
-	stompConnectTimeList     []float64
-	messageLatencyList       []float64
-
-	// atomic 카운터
-	errorCount             atomic.Int64
-	successCount           atomic.Int64
-	activeConnectionsCount atomic.Int64 // for display
+	// 워커들이 공유하는 메트릭/통계 데이터
+	sharedData = worker.NewSharedData()
 
 	// graceful shutdown을 위한 context
 	mainCtx    context.Context
@@ -141,13 +131,13 @@ func printTestHeader(cfg *config.Config) {
 	fmt.Printf("방 ID: \033[1;33m%d\033[0m\n", cfg.RoomID)
 	fmt.Printf("메시지 전송 간격: \033[1;33m%v\033[0m\n", cfg.MessageInterval)
 	fmt.Printf("스테이지: \033[1;33m%d개\033[0m\n", len(config.Stages))
-	
+
 	if cfg.EnableReconnect {
 		fmt.Printf("재연결: \033[1;32m활성화\033[0m (최대 %d회 시도)\n", cfg.MaxReconnectAttempts)
 	} else {
 		fmt.Printf("재연결: \033[1;31m비활성화\033[0m\n")
 	}
-	
+
 	fmt.Printf("\033[1;32m📊 Prometheus metrics: http://localhost:2112/metrics\033[0m\n")
 	fmt.Printf("\033[1;32m📈 Grafana dashboard: http://localhost:3000\033[0m\n\n")
 }
@@ -180,26 +170,20 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 	stageStartTime := time.Now()
 
 	// 워커 생성 (ramp-up)
+	stopEarly := false
+
+WORKER_LOOP:
 	for i := 0; i < stage.Workers; i++ {
 		select {
 		case <-mainCtx.Done():
-			goto WAIT_WORKERS
+			stopEarly = true
+			break WORKER_LOOP
 		default:
 		}
 
 		wg.Add(1)
-		w := &worker.Worker{
-			ID:                       stageIdx*100000 + i + 1,
-			Config:                   cfg,
-			ErrorCount:               &errorCount,
-			SuccessCount:             &successCount,
-			MessageLatencyList:       &messageLatencyList,
-			WebSocketConnectTimeList: &webSocketConnectTimeList,
-			StompConnectTimeList:     &stompConnectTimeList,
-			ResultsMutex:             &resultsMutex,
-			ActiveConnectionsCount:   &activeConnectionsCount,
-		}
-		go w.Run(&wg, stageCtx)
+		workerID := stageIdx*100000 + i + 1
+		go worker.Run(workerID, &wg, cfg, sharedData, stageCtx)
 
 		if time.Since(stageStartTime) < rampUpDuration {
 			time.Sleep(interval)
@@ -219,14 +203,22 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 				progress,
 				i+1,
 				stage.Workers,
-				activeConnectionsCount.Load(),
-				messaging.SendMessageCount.Load(),
-				messaging.ReceiveMessageCount.Load(),
-				errorCount.Load(),
+				sharedData.ActiveConnections.Load(),
+				sharedData.SendMessageCount.Load(),
+				sharedData.ReceiveMessageCount.Load(),
+				sharedData.ErrorCount.Load(),
 			)
 		}
 	}
-	
+
+	if stopEarly {
+		fmt.Printf("\033[90m  워커 종료 대기 중...\033[0m\n")
+		wg.Wait()
+		fmt.Printf("\033[1;34m└─ Stage %d 완료 (총 소요: %v) ─┘\033[0m\n\n",
+			stageIdx+1, time.Since(stageStartTime).Round(time.Millisecond))
+		return
+	}
+
 	fmt.Printf("\n\033[1;32m  ✓ %d 워커 생성 완료 (소요: %v)\033[0m\n",
 		stage.Workers, time.Since(stageStartTime).Round(time.Millisecond))
 
@@ -241,10 +233,10 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 			case <-monitorTicker.C:
 				fmt.Printf(
 					"\r\033[90m  유지중: 활성=%d | 전송=%d | 수신=%d | 오류=%d | 경과=%v\033[0m\n",
-					activeConnectionsCount.Load(),
-					messaging.SendMessageCount.Load(),
-					messaging.ReceiveMessageCount.Load(),
-					errorCount.Load(),
+					sharedData.ActiveConnections.Load(),
+					sharedData.SendMessageCount.Load(),
+					sharedData.ReceiveMessageCount.Load(),
+					sharedData.ErrorCount.Load(),
 					time.Since(stageStartTime).Round(time.Second),
 				)
 			}
@@ -253,7 +245,6 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 
 	<-stageCtx.Done()
 
-WAIT_WORKERS:
 	fmt.Printf("\033[90m  워커 종료 대기 중...\033[0m\n")
 	wg.Wait()
 
@@ -287,7 +278,7 @@ func main() {
 	}
 
 	// Pending 메시지 정리 고루틴
-	go messaging.CleanupPendingMessages(mainCtx, 30*time.Second)
+	go worker.CleanupPendingMessages(mainCtx, sharedData.PendingMessages, 30*time.Second)
 
 	// Prometheus 메트릭 서버
 	startMetricsServer("2112")
@@ -331,13 +322,13 @@ END_TEST:
 	// 리포트 생성
 	reports.MakeReport(
 		totalWorkers,
-		messageLatencyList,
-		webSocketConnectTimeList,
-		stompConnectTimeList,
-		&messaging.SendMessageCount,
-		&messaging.ReceiveMessageCount,
-		&errorCount,
-		&successCount,
+		sharedData.MessageLatencyList,
+		sharedData.WebSocketConnectTimeList,
+		sharedData.StompConnectTimeList,
+		sharedData.SendMessageCount,
+		sharedData.ReceiveMessageCount,
+		sharedData.ErrorCount,
+		sharedData.SuccessCount,
 		testDuration,
 	)
 

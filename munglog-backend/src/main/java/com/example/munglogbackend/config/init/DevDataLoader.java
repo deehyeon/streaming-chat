@@ -26,16 +26,20 @@ import java.util.List;
 
 /**
  * 테스트용 Mock 데이터를 로딩하는 Component
+ * - CSV 파일에서 10,000명의 회원 로드
+ * - 기본 보호소 및 봉사 신청 데이터 생성
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @Profile({"local", "prod"})
 public class DevDataLoader implements CommandLineRunner {
+
     private final MemberRepository memberRepository;
     private final ShelterRepository shelterRepository;
     private final VolunteerApplicationRepository volunteerApplicationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CsvMemberLoader csvMemberLoader;
 
     @Override
     @Transactional
@@ -47,274 +51,186 @@ public class DevDataLoader implements CommandLineRunner {
         }
 
         log.info("🔧 개발 환경 - 테스트 데이터 로딩 중...");
+        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // 1. Member 생성
-        List<Member> members = createMembers();
-        log.info("✅ {} Members created", members.size());
+        // 1. CSV에서 대량 회원 데이터 로드
+        log.info("📋 Step 1/4: CSV 회원 데이터 로딩...");
+        csvMemberLoader.loadMembersFromCsv();
 
-        // 2. Shelter 생성
-        List<Shelter> shelters = createShelters(members);
+        // 2. 추가 특수 테스트 계정 생성
+        log.info("📋 Step 2/4: 특수 테스트 계정 생성...");
+        List<Member> specialMembers = createSpecialMembers();
+        log.info("✅ {} Special test accounts created", specialMembers.size());
+
+        // 3. 전체 회원 조회 (보호소 생성용)
+        List<Member> allMembers = memberRepository.findAll();
+
+        // 4. Shelter 생성 (보호소 소유자들로부터)
+        log.info("📋 Step 3/4: 보호소 생성...");
+        List<Shelter> shelters = createShelters(allMembers);
         log.info("✅ {} Shelters created", shelters.size());
 
-        // 3. VolunteerApplication 생성
-        List<VolunteerApplication> applications = createVolunteerApplications(members, shelters);
+        // 5. VolunteerApplication 생성 (일부 회원들로)
+        log.info("📋 Step 4/4: 봉사 신청 생성...");
+        List<VolunteerApplication> applications = createVolunteerApplications(allMembers, shelters);
         log.info("✅ {} Volunteer Applications created", applications.size());
 
+        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         log.info("🎉 개발용 Mock 데이터 로딩 완료!");
-        log.info("📝 테스트 계정 정보:");
-        log.info("   - 봉사자1: volunteer1@test.com / test1234");
-        log.info("   - 봉사자2: volunteer2@test.com / test1234");
-        log.info("   - 봉사자3: volunteer3@test.com / test1234");
-        log.info("   - 보호소 소유자1: shelter1@test.com / test1234");
-        log.info("   - 보호소 소유자2: shelter2@test.com / test1234");
-        log.info("   - 보호소 소유자3: shelter3@test.com / test1234");
+        log.info("");
+        log.info("📝 특수 테스트 계정 정보:");
+        log.info("   - 슈퍼관리자: superadmin@test.com / test1234");
+        log.info("   - 테스트봉사자: testvolunteer@test.com / test1234");
+        log.info("   - 테스트보호소: testshelter@test.com / test1234");
+        log.info("");
+        log.info("📊 CSV 회원 (10,000명):");
+        log.info("   - 이메일: user00001@test.com ~ user10000@test.com");
+        log.info("   - 비밀번호: test1234 (공통)");
+        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     /**
-     * 테스트용 Member 데이터 생성
-     * - 봉사자 3명
-     * - 보호소 소유자 3명
+     * 특수 목적 테스트 계정 생성
+     * - 슈퍼 관리자
+     * - 명확한 테스트용 봉사자/보호소 계정
      */
-    private List<Member> createMembers() {
+    private List<Member> createSpecialMembers() {
         List<Member> members = new ArrayList<>();
 
-        // Admin 계정 생성
+        // 슈퍼 관리자
         members.add(Member.createSocialMember(
-                "관리자",
-                Email.from("admin@test.com"),
+                "슈퍼관리자",
+                Email.from("superadmin@test.com"),
                 passwordEncoder.encode("test1234"),
                 MemberRole.ADMIN
         ));
 
-        // 봉사자 계정 생성
+        // 테스트 봉사자
         members.add(Member.create(new MemberSignUpRequest(
-                "봉사자1",
-                "volunteer1@test.com",
+                "테스트봉사자",
+                "testvolunteer@test.com",
                 passwordEncoder.encode("test1234"),
                 MemberRole.VOLUNTEER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-                )
-        ));
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "테스트빌딩 101호")
+        )));
 
+        // 테스트 보호소
         members.add(Member.create(new MemberSignUpRequest(
-                "봉사자2",
-                "volunteer2@test.com",
-                passwordEncoder.encode("test1234"),
-                MemberRole.VOLUNTEER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-                )
-        ));
-
-        members.add(Member.create(new MemberSignUpRequest(
-                "봉사자3",
-                "volunteer3@test.com",
-                passwordEncoder.encode("test1234"),
-                MemberRole.VOLUNTEER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-                )
-        ));
-
-        // 보호소 소유자 계정 생성
-        members.add(Member.create(new MemberSignUpRequest(
-                "보호소1",
-                "shelter1@test.com",
+                "테스트보호소",
+                "testshelter@test.com",
                 passwordEncoder.encode("test1234"),
                 MemberRole.SHELTER_OWNER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-                )
-        ));
-
-        members.add(Member.create(new MemberSignUpRequest(
-                "보호소2",
-                "shelter2@test.com",
-                passwordEncoder.encode("test1234"),
-                MemberRole.SHELTER_OWNER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-            )
-        ));
-
-        members.add(Member.create(new MemberSignUpRequest(
-                "보호소3",
-                "shelter3@test.com",
-                passwordEncoder.encode("test1234"),
-                MemberRole.SHELTER_OWNER,
-                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
-            )
-        ));
+                new AddressRequest("12345", "경기도 수원시 행복구 행복동", "테스트빌딩 201호")
+        )));
 
         return memberRepository.saveAll(members);
     }
 
     /**
      * 테스트용 Shelter 데이터 생성
+     * - SHELTER_OWNER 역할을 가진 회원들 중 일부를 선택하여 보호소 생성
      */
-    private List<Shelter> createShelters(List<Member> members) {
+    private List<Shelter> createShelters(List<Member> allMembers) {
         List<Shelter> shelters = new ArrayList<>();
 
-        // 보호소 1: 사랑 동물보호소 (서울 강남구)
-        Shelter shelter1 = Shelter.createShelter(
-                members.get(4), // 첫 번째 보호소 소유자
-                "사랑 동물보호소",
-                "02-1234-5678",
-                Email.from("love@shelter.com"),
-                List.of("https://love-shelter.com", "https://instagram.com/love_shelter"),
-                "서울 강남구에 위치한 유기견 전문 보호소입니다. 20년의 역사를 가진 보호소로, 매년 200마리 이상의 유기견을 구조하고 입양 보내고 있습니다.",
-                "월-금 09:00-18:00 (주말 휴무)",
-                "주말 봉사도 가능합니다! 사전 예약 필수입니다.",
-                Address.create("06234", "서울특별시 강남구 테헤란로 123", "1층")
-        );
+        // SHELTER_OWNER 회원만 필터링
+        List<Member> shelterOwners = allMembers.stream()
+                .filter(m -> m.getRole() == MemberRole.SHELTER_OWNER)
+                .limit(100) // 100개의 보호소 생성
+                .toList();
 
-        // 보호소 이미지 추가
-        shelter1.addShelterImage("https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800");
-        shelter1.addShelterImage("https://images.unsplash.com/photo-1501820488136-72669149e0d4?w=800");
-        shelter1.addShelterImage("https://images.unsplash.com/photo-1522276498395-f4f68f7f8454?w=800");
+        if (shelterOwners.isEmpty()) {
+            log.warn("⚠️ SHELTER_OWNER 역할을 가진 회원이 없습니다.");
+            return shelters;
+        }
 
-        // 보호소 강아지 사진 추가
-        shelter1.addShelterDogsImage("https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600");
-        shelter1.addShelterDogsImage("https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600");
-        shelter1.addShelterDogsImage("https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600");
-        shelter1.addShelterDogsImage("https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=600");
+        // 보호소 템플릿
+        String[][] shelterTemplates = {
+                {"사랑 동물보호소", "02-1234-5678", "서울특별시 강남구 테헤란로 123", "06234"},
+                {"희망 동물의집", "031-8765-4321", "경기도 성남시 분당구 판교역로 231", "13487"},
+                {"행복 동물보호센터", "032-9876-5432", "인천광역시 연수구 송도과학로 32", "21990"},
+                {"평화 보호소", "051-1111-2222", "부산광역시 해운대구 센텀중앙로 97", "48094"},
+                {"나눔 동물센터", "053-3333-4444", "대구광역시 수성구 달구벌대로 2450", "42061"},
+        };
 
-        shelters.add(shelter1);
+        for (int i = 0; i < shelterOwners.size(); i++) {
+            Member owner = shelterOwners.get(i);
+            String[] template = shelterTemplates[i % shelterTemplates.length];
 
-        // 보호소 2: 희망 동물의집 (경기도 성남시)
-        Shelter shelter2 = Shelter.createShelter(
-                members.get(5), // 두 번째 보호소 소유자
-                "희망 동물의집",
-                "031-8765-4321",
-                Email.from("hope@shelter.com"),
-                List.of("https://hope-shelter.com", "https://facebook.com/hope.shelter"),
-                "경기도 성남시에 위치한 유기묘 전문 보호소입니다. 고양이뿐만 아니라 토끼, 햄스터 등 소동물도 보호하고 있습니다.",
-                "월-일 10:00-17:00 (연중무휴)",
-                "언제든지 봉사 신청 가능합니다. 첫 방문 시 오리엔테이션이 있습니다.",
-                Address.create("13487", "경기도 성남시 분당구 판교역로 231", "지하 1층")
-        );
+            Shelter shelter = Shelter.createShelter(
+                    owner,
+                    template[0] + " #" + (i + 1),
+                    template[1],
+                    Email.from("shelter" + (i + 1) + "@test.com"),
+                    List.of("https://shelter" + (i + 1) + ".com"),
+                    "유기동물 보호 및 입양을 돕는 보호소입니다.",
+                    "월-금 09:00-18:00",
+                    "봉사자를 모집합니다!",
+                    Address.create(template[3], template[2], (i + 1) + "호")
+            );
 
-        // 보호소 이미지 추가
-        shelter2.addShelterImage("https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=800");
-        shelter2.addShelterImage("https://images.unsplash.com/photo-1415369629372-26f2fe60c467?w=800");
+            // 대표 이미지 추가
+            shelter.addShelterImage("https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800");
+            shelter.addShelterDogsImage("https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600");
 
-        // 보호소 강아지/고양이 사진 추가
-        shelter2.addShelterDogsImage("https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600");
-        shelter2.addShelterDogsImage("https://images.unsplash.com/photo-1573865526739-10c1d3a1f0cc?w=600");
-        shelter2.addShelterDogsImage("https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=600");
-
-        shelters.add(shelter2);
-
-        // 보호소 3: 행복 동물보호센터 (인천 연수구)
-        Shelter shelter3 = Shelter.createShelter(
-                members.get(6), // 세 번째 보호소 소유자
-                "행복 동물보호센터",
-                "032-9876-5432",
-                Email.from("happy@shelter.com"),
-                List.of("https://happy-shelter.com"),
-                "인천 연수구에 위치한 대형 보호소입니다. 넓은 운동장과 현대적인 시설을 갖추고 있습니다.",
-                "화-일 09:00-18:00 (월요일 휴무)",
-                "대형견 산책 봉사자를 특히 환영합니다!",
-                Address.create("21990", "인천광역시 연수구 송도과학로 32", "2층")
-        );
-
-        // 보호소 이미지 추가
-        shelter3.addShelterImage("https://images.unsplash.com/photo-1444212477490-ca407925329e?w=800");
-
-        // 보호소 강아지 사진 추가
-        shelter3.addShelterDogsImage("https://images.unsplash.com/photo-1560807707-8cc77767d783?w=600");
-        shelter3.addShelterDogsImage("https://images.unsplash.com/photo-1568572933382-74d440642117?w=600");
-
-        shelters.add(shelter3);
+            shelters.add(shelter);
+        }
 
         return shelterRepository.saveAll(shelters);
     }
 
     /**
      * 테스트용 VolunteerApplication 데이터 생성
+     * - VOLUNTEER 역할 회원들 중 일부가 보호소에 봉사 신청
      */
-    private List<VolunteerApplication> createVolunteerApplications(List<Member> members, List<Shelter> shelters) {
-        List<VolunteerApplication> applications = new ArrayList<>();
+    private List<VolunteerApplication> createVolunteerApplications(List<Member> allMembers, List<Shelter> shelters) {
+        if (shelters.isEmpty()) {
+            log.warn("⚠️ 생성된 보호소가 없어 봉사 신청을 생성할 수 없습니다.");
+            return List.of();
+        }
 
-        // 오늘 날짜 기준으로 미래 날짜 생성
+        List<VolunteerApplication> applications = new ArrayList<>();
         LocalDate today = LocalDate.now();
 
-        // 봉사자1이 사랑 보호소에 신청 (PENDING)
-        VolunteerApplication app1 = VolunteerApplication.createApplication(
-                members.get(1), // 봉사자1
-                shelters.get(0), // 사랑 보호소
-                today.plusDays(5),
-                LocalTime.of(10, 0),
-                LocalTime.of(14, 0),
-                "강아지 산책 봉사를 희망합니다. 대형견 다루는 것에 익숙합니다."
-        );
-        applications.add(app1);
+        // VOLUNTEER 역할 회원만 필터링 (200명 사용)
+        List<Member> volunteers = allMembers.stream()
+                .filter(m -> m.getRole() == MemberRole.VOLUNTEER)
+                .limit(200)
+                .toList();
 
-        // 봉사자1이 희망 보호소에 신청 (APPROVED)
-        VolunteerApplication app2 = VolunteerApplication.createApplication(
-                members.get(1), // 봉사자1
-                shelters.get(1), // 희망 보호소
-                today.plusDays(7),
-                LocalTime.of(13, 0),
-                LocalTime.of(17, 0),
-                "고양이 케어 봉사를 신청합니다. 고양이를 좋아합니다."
-        );
-        app2.approve();
-        applications.add(app2);
+        if (volunteers.isEmpty()) {
+            log.warn("⚠️ VOLUNTEER 역할을 가진 회원이 없습니다.");
+            return applications;
+        }
 
-        // 봉사자2가 사랑 보호소에 신청 (PENDING)
-        VolunteerApplication app3 = VolunteerApplication.createApplication(
-                members.get(2), // 봉사자2
-                shelters.get(0), // 사랑 보호소
-                today.plusDays(10),
-                LocalTime.of(9, 0),
-                LocalTime.of(12, 0),
-                "주말 봉사 가능합니다. 청소 및 급식 봉사 희망합니다."
-        );
-        applications.add(app3);
+        // 각 봉사자가 1-3개의 보호소에 신청
+        for (int i = 0; i < volunteers.size(); i++) {
+            Member volunteer = volunteers.get(i);
+            int applicationCount = (i % 3) + 1; // 1~3개
 
-        // 봉사자2가 행복 보호소에 신청 (REJECTED)
-        VolunteerApplication app4 = VolunteerApplication.createApplication(
-                members.get(2), // 봉사자2
-                shelters.get(2), // 행복 보호소
-                today.plusDays(3),
-                LocalTime.of(14, 0),
-                LocalTime.of(18, 0),
-                "대형견 산책 봉사 신청합니다."
-        );
-        app4.reject();
-        applications.add(app4);
+            for (int j = 0; j < applicationCount; j++) {
+                Shelter shelter = shelters.get((i + j) % shelters.size());
 
-        // 봉사자3이 희망 보호소에 신청 (APPROVED)
-        VolunteerApplication app5 = VolunteerApplication.createApplication(
-                members.get(3), // 봉사자3
-                shelters.get(1), // 희망 보호소
-                today.plusDays(6),
-                LocalTime.of(10, 0),
-                LocalTime.of(15, 0),
-                "사진 촬영 봉사 가능합니다. 입양 홍보 사진 찍어드릴게요!"
-        );
-        app5.approve();
-        applications.add(app5);
+                VolunteerApplication app = VolunteerApplication.createApplication(
+                        volunteer,
+                        shelter,
+                        today.plusDays(5 + (i % 15)),
+                        LocalTime.of(10 + (i % 5), 0),
+                        LocalTime.of(14 + (i % 3), 0),
+                        "봉사 신청합니다. 열심히 하겠습니다!"
+                );
 
-        // 봉사자3이 행복 보호소에 신청 (PENDING)
-        VolunteerApplication app6 = VolunteerApplication.createApplication(
-                members.get(3), // 봉사자3
-                shelters.get(2), // 행복 보호소
-                today.plusDays(12),
-                LocalTime.of(11, 0),
-                LocalTime.of(16, 0),
-                "정기적으로 봉사하고 싶습니다. 매주 토요일 가능합니다."
-        );
-        applications.add(app6);
+                // 상태 다양화 (70% PENDING, 20% APPROVED, 10% REJECTED)
+                int statusRandom = i % 10;
+                if (statusRandom < 2) {
+                    app.approve();
+                } else if (statusRandom == 9) {
+                    app.reject();
+                }
 
-        // 봉사자1이 행복 보호소에 신청 (CANCELLED)
-        VolunteerApplication app7 = VolunteerApplication.createApplication(
-                members.get(1), // 봉사자1
-                shelters.get(2), // 행복 보호소
-                today.plusDays(8),
-                LocalTime.of(13, 0),
-                LocalTime.of(17, 0),
-                "시간이 맞지 않아 취소합니다."
-        );
-        app7.cancel();
-        applications.add(app7);
+                applications.add(app);
+            }
+        }
 
         return volunteerApplicationRepository.saveAll(applications);
     }

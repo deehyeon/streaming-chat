@@ -2,6 +2,7 @@ package com.example.munglogbackend.application.member.required;
 
 import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.Member;
+import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,4 +20,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     boolean existsByEmailAndIsDeletedFalse(Email email);
 
     List<Member> findAllByIsDeletedFalse();
+    /**
+     * 특정 역할을 가진 회원 수 조회
+     */
+    long countByRole(MemberRole role);
 }
