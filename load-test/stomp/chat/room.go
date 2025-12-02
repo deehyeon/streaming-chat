@@ -8,10 +8,11 @@ import (
 	"stomp-load-test/auth"
 	"stomp-load-test/config"
 	"strconv"
+	"strings"
 	"time"
 )
 
-// ChatRoomType 채팅방 타입
+// ChatRoomType represents chat room type
 type ChatRoomType string
 
 const (
@@ -19,17 +20,17 @@ const (
 	ChatRoomTypeGroup   ChatRoomType = "GROUP"
 )
 
-// ChatRoomSummary 채팅방 요약 정보 (백엔드 스펙과 일치)
+// ChatRoomSummary represents chat room summary information
 type ChatRoomSummary struct {
 	RoomId             int64        `json:"roomId"`
 	UnreadCount        int64        `json:"unreadCount"`
 	ChatRoomType       ChatRoomType `json:"chatRoomType"`
 	LastMessagePreview string       `json:"lastMessagePreview"`
-	LastMessageAt      *time.Time   `json:"lastMessageAt"` // LocalDateTime -> nullable
+	LastMessageAt      *time.Time   `json:"lastMessageAt"`
 }
 
-// CreateGroupRoom 단체 채팅방 생성 함수
-func CreateGroupRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) {
+// CreateGroupChatRoom creates a group chat room
+func CreateGroupChatRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) {
 	if cfg == nil || cfg.HTTPClient == nil {
 		return 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
 	}
@@ -78,7 +79,6 @@ func CreateGroupRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) 
 		return 0, fmt.Errorf("채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 int64로 변환 (roomId)
 	var roomId int64
 	if err := json.Unmarshal(apiResp.Data, &roomId); err != nil {
 		return 0, fmt.Errorf("채팅방 ID 파싱 실패: %w", err)
@@ -87,9 +87,8 @@ func CreateGroupRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) 
 	return roomId, nil
 }
 
-// FetchRoomList 채팅방 목록 조회
-// 백엔드 API는 List<ChatRoomSummary>를 반환함
-func FetchRoomList(cfg *config.Config) (int64, error) {
+// FetchRoomIDFromAPI fetches the first available chat room ID from API
+func FetchRoomIDFromAPI(cfg *config.Config) (int64, error) {
 	if cfg == nil || cfg.HTTPClient == nil {
 		return 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
 	}
@@ -113,17 +112,13 @@ func FetchRoomList(cfg *config.Config) (int64, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return 0, fmt.Errorf("채팅방 목록 응답 읽기 실패: %w", err)
-		}
-		return 0, fmt.Errorf("예상치 못한 상태 코드 %d: %s", resp.StatusCode, string(body))
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, fmt.Errorf("채팅방 목록 응답 읽기 실패: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("예상치 못한 상태 코드 %d: %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp auth.ApiResponse
@@ -135,7 +130,6 @@ func FetchRoomList(cfg *config.Config) (int64, error) {
 		return 0, fmt.Errorf("API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 []ChatRoomSummary 배열로 파싱
 	var roomSummaries []ChatRoomSummary
 	if err := json.Unmarshal(apiResp.Data, &roomSummaries); err != nil {
 		return 0, fmt.Errorf("채팅방 목록 데이터 파싱 실패: %w", err)
@@ -145,6 +139,34 @@ func FetchRoomList(cfg *config.Config) (int64, error) {
 		return 0, fmt.Errorf("서버에서 반환한 채팅방이 없습니다")
 	}
 
-	// 첫 번째 채팅방의 roomId 반환
 	return roomSummaries[0].RoomId, nil
+}
+
+// ParseRoomID parses room ID from string
+func ParseRoomID(roomIDStr string) (int64, error) {
+	roomID, err := strconv.ParseInt(roomIDStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("ROOM_ID 파싱 실패: %w", err)
+	}
+	return roomID, nil
+}
+
+// ParseMemberIDs parses member IDs from comma-separated string, excluding myMemberId
+func ParseMemberIDs(memberIdsStr string, myMemberId int64) []int64 {
+	var otherMemberIds []int64
+
+	if memberIdsStr != "" {
+		idStrs := strings.Split(memberIdsStr, ",")
+		for _, idStr := range idStrs {
+			idStr = strings.TrimSpace(idStr)
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+				// 자기 자신은 제외 (서버에서 자동 추가됨)
+				if id != myMemberId {
+					otherMemberIds = append(otherMemberIds, id)
+				}
+			}
+		}
+	}
+
+	return otherMemberIds
 }
