@@ -52,6 +52,10 @@ jobs:
         run: |
           mkdir -p src/main/resources
           echo "${{ secrets.APPLICATION_YML }}" > src/main/resources/application.yml
+          echo "${{ secrets.APPLICATION_PROD_YML }}" > src/main/resources/application-prod.yml
+          echo "${{ secrets.APPLICATION_ACTUATOR_YML }}" > src/main/resources/application-actuator.yml
+          echo "${{ secrets.APPLICATION_SWAGGER_YML }}" > src/main/resources/application-swagger.yml
+
 
       - name: Grant execute permission for gradlew
         working-directory: ./munglog-backend

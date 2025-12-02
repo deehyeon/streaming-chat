@@ -34,8 +34,9 @@ type Stage struct {
 var (
 	// 스테이지 설정 - 10,000명 동시 접속 테스트
 	Stages = []Stage{
-		{1000, "워밍업", 60},
-		{3000, "중간 트래픽 정밀 측정", 300},
+		// {1000, "워밍업", 60},
+		// {3000, "중간 트래픽 정밀 측정", 300},
+		{5, "Verification Test", 30}, // 5 workers for 30 seconds to verify connection
 	}
 )
 
