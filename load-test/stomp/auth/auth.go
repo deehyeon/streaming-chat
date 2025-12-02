@@ -9,40 +9,40 @@ import (
 	"stomp-load-test/config"
 )
 
-// 로그인 요청 DTO
+// LoginRequest represents login request DTO
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// 토큰 정보
+// TokenInfo represents token information
 type TokenInfo struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
-// 멤버 정보
+// MemberInfo represents member information
 type MemberInfo struct {
 	MemberId   int64  `json:"memberId"`
 	MemberName string `json:"memberName"`
 	MemberRole string `json:"memberRole"`
 }
 
-// 로그인 응답 데이터
+// LoginResponseData represents login response data
 type LoginResponseData struct {
 	TokenInfo  TokenInfo  `json:"tokenInfo"`
 	MemberInfo MemberInfo `json:"memberInfo"`
 }
 
-// API 응답 래퍼
+// ApiResponse represents API response wrapper
 type ApiResponse struct {
 	Result string          `json:"result"`
 	Data   json.RawMessage `json:"data"`
 	Error  interface{}     `json:"error"`
 }
 
-// Login 자동 로그인 함수
-func Login(cfg *config.Config, email, password string) (string, int64, error) {
+// AutoLogin performs automatic login and returns access token and member ID
+func AutoLogin(cfg *config.Config, email, password string) (string, int64, error) {
 	if cfg == nil || cfg.HTTPClient == nil {
 		return "", 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
 	}
@@ -93,7 +93,6 @@ func Login(cfg *config.Config, email, password string) (string, int64, error) {
 		return "", 0, fmt.Errorf("로그인 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
-	// Data를 LoginResponseData로 변환
 	var loginResp LoginResponseData
 	if err := json.Unmarshal(apiResp.Data, &loginResp); err != nil {
 		return "", 0, fmt.Errorf("로그인 응답 데이터 파싱 실패: %w", err)
