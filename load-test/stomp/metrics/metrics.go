@@ -53,11 +53,6 @@ var (
 		Help: "Number of workers currently attempting to reconnect",
 	})
 
-	AverageConnectionDuration = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "stomp_load_test_avg_connection_duration_seconds",
-		Help: "Average WebSocket connection duration",
-	})
-
 	// Histogram: 지연시간 분포
 	MessageLatency = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "stomp_load_test_message_latency_ms",
@@ -102,5 +97,4 @@ func ResetMetrics() {
 	ActiveConnections.Set(0)
 	CurrentStage.Set(0)
 	ActiveReconnections.Set(0)
-	AverageConnectionDuration.Set(0)
 }
