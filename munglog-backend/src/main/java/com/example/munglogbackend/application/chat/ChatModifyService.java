@@ -114,7 +114,7 @@ public class ChatModifyService implements ChatSaver {
             messagingTemplate.convertAndSend(destination, toPayload(chatMessage));
 
             // 메시지 전송 카운트 추가
-            metricsConfig.recordMessageSent(destination, true);
+            metricsConfig.recordMessageSent("chat_message", true);
 
             // 채팅방 요약 정보 개인 토픽으로 전송
             List<ChatParticipant> chatRoomMembers = chatParticipantFinder.findChatParticipants(request.roomId());
@@ -128,7 +128,7 @@ public class ChatModifyService implements ChatSaver {
                 messagingTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
 
                 // 개인 토픽 전송도 카운트
-                metricsConfig.recordMessageSent(userDestination, false);
+                metricsConfig.recordMessageSent("user_room_summary", false);
 
                 log.info("📡 [convertAndSend] 개인 토픽 전송: /topic/user.{}.room-summary", memberId);
             }

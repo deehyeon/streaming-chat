@@ -181,6 +181,10 @@ public class WebSocketMetricsConfig {
     // === 메시지 관련 메서드 ===
 
     public void recordMessageSent(String destination, boolean isBroadcast) {
+        if (destination == null) {
+            log.warn("recordMessageSent called with null destination");
+            return;
+        }
         // 전체 메시지 카운트
         messageCounters.computeIfAbsent(destination, dest ->
                 Counter.builder("stomp.messages.sent.total")
