@@ -89,7 +89,7 @@ public class DevDataLoader implements CommandLineRunner {
         // 봉사자 계정 생성
         members.add(Member.create(new MemberSignUpRequest(
                 "봉사자1",
-                "test1@test.com",
+                "volunteer1@test.com",
                 passwordEncoder.encode("test1234"),
                 MemberRole.VOLUNTEER,
                 new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
@@ -98,7 +98,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         members.add(Member.create(new MemberSignUpRequest(
                 "봉사자2",
-                "test2@test.com",
+                "volunteer2@test.com",
                 passwordEncoder.encode("test1234"),
                 MemberRole.VOLUNTEER,
                 new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")
@@ -107,7 +107,7 @@ public class DevDataLoader implements CommandLineRunner {
 
         members.add(Member.create(new MemberSignUpRequest(
                 "봉사자3",
-                "test3@test.com",
+                "volunteer3@test.com",
                 passwordEncoder.encode("test1234"),
                 MemberRole.VOLUNTEER,
                 new AddressRequest("12345", "경기도 수원시 행복구 행복동", "행복호")

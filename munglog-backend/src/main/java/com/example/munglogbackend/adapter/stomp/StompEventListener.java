@@ -40,9 +40,12 @@ public class StompEventListener {
     public void onSubscribe(SessionSubscribeEvent e) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(e.getMessage());
         String destination = accessor.getDestination();
+        if (destination == null) {
+            log.warn("🔔 SUB without destination. session={}", accessor.getSessionId());
+            return;
+        }
 
         metricsConfig.incrementSubscriptions(destination);
-
         log.info("🔔 SUB: session={}, dest={}", accessor.getSessionId(), destination);
     }
 
@@ -50,9 +53,12 @@ public class StompEventListener {
     public void onUnsubscribe(SessionUnsubscribeEvent e) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(e.getMessage());
         String destination = accessor.getDestination();
+        if (destination == null) {
+            log.warn("🔕 UNSUB without destination. session={}", accessor.getSessionId());
+            return;
+        }
 
         metricsConfig.decrementSubscriptions(destination);
-
         log.info("🔕 UNSUB: session={}, dest={}", accessor.getSessionId(), destination);
     }
 

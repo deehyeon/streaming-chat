@@ -2,6 +2,7 @@ package com.example.munglogbackend.config.monitoring;
 
 import io.micrometer.core.instrument.*;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -10,10 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Component
 @Getter
 public class WebSocketMetricsConfig {
-
     private final MeterRegistry meterRegistry;
 
     // === 연결 관련 메트릭 ===
@@ -144,14 +145,18 @@ public class WebSocketMetricsConfig {
     // === 구독 관련 메서드 ===
 
     public void incrementSubscriptions(String destination) {
+        if (destination == null) {
+            log.info("‼️destination is null");
+            return;
+        }
         activeSubscriptions.incrementAndGet();
         subscribeCounter.increment();
 
         // 토픽별 구독자 수 증가
-        subscribersPerTopic.computeIfAbsent(destination, k -> {
+        subscribersPerTopic.computeIfAbsent (destination, k -> {
             AtomicInteger count = new AtomicInteger(0);
             Gauge.builder("stomp.subscribers.per.topic", count, AtomicInteger::get)
-                    .tag("destination", destination)
+                    .tag("destination", k)
                     .description("Number of subscribers per topic")
                     .register(meterRegistry);
             return count;
@@ -159,13 +164,17 @@ public class WebSocketMetricsConfig {
     }
 
     public void decrementSubscriptions(String destination) {
-        activeSubscriptions.decrementAndGet();
+        if (destination == null) {
+            log.info("‼️destination is null");
+            return;
+        }
+        activeSubscriptions.updateAndGet(v -> Math.max(0, v - 1));
         unsubscribeCounter.increment();
 
         // 토픽별 구독자 수 감소
         AtomicInteger count = subscribersPerTopic.get(destination);
         if (count != null) {
-            count.decrementAndGet();
+            count.updateAndGet(v -> Math.max(0, v - 1));
         }
     }
 

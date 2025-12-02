@@ -11,7 +11,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,info,prometheus,metrics
       base-path: /actuator
 
   # Liveness/Readiness probe 엔드포인트 활성화

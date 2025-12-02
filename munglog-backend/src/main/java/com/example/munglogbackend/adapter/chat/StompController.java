@@ -25,7 +25,7 @@ public class StompController {
         Timer.Sample sample = metricsConfig.startTimer();
 
         try {
-            log.info("[STOMP] roomId={}, dto={}", roomId, chatMessageDto);
+            log.info("[STOMP] roomId={}, senderId={}", roomId, chatMessageDto.senderId());
             if (!roomId.equals(chatMessageDto.roomId())) {
                 throw new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND);
             }
