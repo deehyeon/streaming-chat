@@ -31,8 +31,9 @@ var (
 	messageLatencyList       []float64
 
 	// atomic 카운터
-	errorCount    atomic.Int64
-	successCount  atomic.Int64
+	errorCount             atomic.Int64
+	successCount           atomic.Int64
+	activeConnectionsCount atomic.Int64 // for display
 
 	// graceful shutdown을 위한 context
 	mainCtx    context.Context
@@ -196,6 +197,7 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 			WebSocketConnectTimeList: &webSocketConnectTimeList,
 			StompConnectTimeList:     &stompConnectTimeList,
 			ResultsMutex:             &resultsMutex,
+			ActiveConnectionsCount:   &activeConnectionsCount,
 		}
 		go w.Run(&wg, stageCtx)
 
@@ -217,7 +219,7 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 				progress,
 				i+1,
 				stage.Workers,
-				metrics.ActiveConnections,
+				activeConnectionsCount.Load(),
 				messaging.SendMessageCount.Load(),
 				messaging.ReceiveMessageCount.Load(),
 				errorCount.Load(),
@@ -239,7 +241,7 @@ func runStage(stageIdx int, stage config.Stage, cfg *config.Config) {
 			case <-monitorTicker.C:
 				fmt.Printf(
 					"\r\033[90m  유지중: 활성=%d | 전송=%d | 수신=%d | 오류=%d | 경과=%v\033[0m\n",
-					metrics.ActiveConnections,
+					activeConnectionsCount.Load(),
 					messaging.SendMessageCount.Load(),
 					messaging.ReceiveMessageCount.Load(),
 					errorCount.Load(),
