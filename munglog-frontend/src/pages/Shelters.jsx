@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { getShelters, searchSheltersByName } from '../api/shelterApi';
 
-export default function Shelters({ 
-  selectedRegion, 
-  setIsLocationModalOpen,
-  likedItems,
-  toggleLike,
-  setCurrentPage,
-  setSelectedShelterId
-}) {
-  const [searchQuery, setSearchQuery] = useState('');
+export default function Shelters() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { 
+    isLocationModalOpen, 
+    setIsLocationModalOpen,
+    selectedRegion,
+    setSelectedRegion 
+  } = useOutletContext();
+
+  // URL에서 파라미터 읽기
+  const regionParam = searchParams.get('region') || selectedRegion || '강남구';
+  const pageParam = parseInt(searchParams.get('page') || '0');
+  const searchParam = searchParams.get('search') || '';
+  
+  const [searchQuery, setSearchQuery] = useState(searchParam);
   const [activeFilter, setActiveFilter] = useState('volunteer');
   const [shelters, setShelters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentPage, setCurrentPageNum] = useState(0);
+  const [currentPage, setCurrentPage] = useState(pageParam);
   const [totalPages, setTotalPages] = useState(0);
+  const [likedItems, setLikedItems] = useState(new Set());
 
   const filters = [
     { id: 'volunteer', label: '🤝 봉사가능' },
@@ -24,10 +33,20 @@ export default function Shelters({
     { id: 'distance', label: '📍 거리순' }
   ];
 
+  // URL 파라미터 업데이트
+  useEffect(() => {
+    const params = {};
+    if (regionParam !== '전국') params.region = regionParam;
+    if (currentPage > 0) params.page = currentPage.toString();
+    if (searchQuery) params.search = searchQuery;
+    
+    setSearchParams(params);
+  }, [regionParam, currentPage, searchQuery]);
+
   // 보호소 목록 조회
   useEffect(() => {
     fetchShelters();
-  }, [selectedRegion, currentPage]);
+  }, [regionParam, currentPage]);
 
   // 검색어 변경 시 디바운싱
   useEffect(() => {
@@ -46,7 +65,7 @@ export default function Shelters({
     try {
       setLoading(true);
       const response = await getShelters({
-        region: selectedRegion === '전국' ? null : selectedRegion,
+        region: regionParam === '전국' ? null : regionParam,
         page: currentPage,
         size: 10
       });
@@ -78,11 +97,22 @@ export default function Shelters({
   };
 
   const handleShelterClick = (shelterId) => {
-    setSelectedShelterId(shelterId);
-    setCurrentPage('shelter-detail');
+    navigate(`/shelters/${shelterId}`);
   };
 
-  // 거리 계산 (임시 - 실제로는 백엔드에서 계산하거나 사용자 위치 기반)
+  const toggleLike = (shelterId) => {
+    setLikedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(shelterId)) {
+        newSet.delete(shelterId);
+      } else {
+        newSet.add(shelterId);
+      }
+      return newSet;
+    });
+  };
+
+  // 거리 계산 (임시)
   const calculateDistance = (address) => {
     return `${(Math.random() * 5).toFixed(1)}km`;
   };
@@ -109,7 +139,7 @@ export default function Shelters({
 
         <div className="relative z-10 text-center space-y-6">
           <div className="inline-block bg-yellow-400 text-gray-800 px-8 py-4 rounded-full font-bold text-lg shadow-lg">
-            당신하터 갈 보호소를 찾아볼까요? 🐕
+            당신과 함께 갈 보호소를 찾아볼까요? 🐕
           </div>
 
           <div className="flex flex-col items-center space-y-3">
@@ -134,7 +164,7 @@ export default function Shelters({
             onClick={() => setIsLocationModalOpen(true)}
             className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-gray-300 rounded-xl hover:border-yellow-400 transition-colors font-medium"
           >
-            📍 {selectedRegion}
+            📍 {regionParam}
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
@@ -205,12 +235,10 @@ export default function Shelters({
               onClick={() => handleShelterClick(shelter.shelterId)}
             >
               <div className="flex gap-4">
-                {/* 보호소 아이콘 */}
                 <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
                   🏠
                 </div>
 
-                {/* 보호소 정보 */}
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-base font-bold text-gray-800">
@@ -277,7 +305,7 @@ export default function Shelters({
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-6">
           <button
-            onClick={() => setCurrentPageNum(Math.max(0, currentPage - 1))}
+            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
             disabled={currentPage === 0}
             className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-30 hover:bg-gray-50"
           >
@@ -287,7 +315,7 @@ export default function Shelters({
             {currentPage + 1} / {totalPages}
           </span>
           <button
-            onClick={() => setCurrentPageNum(Math.min(totalPages - 1, currentPage + 1))}
+            onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
             disabled={currentPage === totalPages - 1}
             className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-30 hover:bg-gray-50"
           >
