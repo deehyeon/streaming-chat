@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://158.180.75.249:8080';
+
 export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUserType }) {
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    emailDomain: 'custom',
     password: '',
     passwordConfirm: '',
-    nickname: ''
+    postalCode: '',
+    streetAddress: '',
+    detailAddress: ''
   });
 
   const [agreements, setAgreements] = useState({
@@ -18,7 +22,8 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
     robot: false
   });
 
-  const emailDomains = ['선택해주세요', 'gmail.com', 'naver.com', 'daum.net', 'kakao.com', '직접입력'];
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -44,49 +49,107 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
         ...agreements,
         [name]: !agreements[name]
       };
-      // Check if all required agreements are checked
-      newAgreements.all = newAgreements.age && newAgreements.terms && newAgreements.privacy && newAgreements.marketing && newAgreements.robot;
+      newAgreements.all = newAgreements.age && newAgreements.terms && 
+                          newAgreements.privacy && newAgreements.marketing && 
+                          newAgreements.robot;
       setAgreements(newAgreements);
     }
   };
 
   const handleSocialSignup = (provider) => {
-    console.log(`${provider} 회원가입`);
-    setIsLoggedIn(true);
-    setUserType('volunteer');
-    setCurrentPage('home');
+    alert(`${provider} 회원가입 기능은 준비 중입니다.`);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // 필수 약관 체크 확인
+    setError('');
+
+    // 유효성 검사
     if (!agreements.age || !agreements.terms || !agreements.privacy || !agreements.robot) {
-      alert('필수 약관에 동의해주세요.');
+      setError('필수 약관에 동의해주세요.');
       return;
     }
 
-    // 비밀번호 확인
     if (formData.password !== formData.passwordConfirm) {
-      alert('비밀번호가 일치하지 않습니다.');
+      setError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
-    console.log('회원가입 데이터:', formData, agreements);
-    alert('회원가입이 완료되었습니다!');
-    
-    // 회원가입 성공 시 자동 로그인
-    setIsLoggedIn(true);
-    setUserType('volunteer');
-    setCurrentPage('home');
+    if (formData.password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+
+    // 비밀번호 유효성 검사 (영문, 숫자, 특수문자 포함)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,20}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('비밀번호는 영문, 숫자, 특수문자를 포함하여 8~20자여야 합니다.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const requestBody = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: 'VOLUNTEER',
+        address: {
+          postalCode: formData.postalCode,
+          streetAddress: formData.streetAddress,
+          detailAddress: formData.detailAddress
+        }
+      };
+
+      const response = await fetch(`${API_BASE_URL}/v1/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (data.result === 'SUCCESS' && data.data) {
+        const { tokenInfo, memberInfo } = data.data;
+
+        // 토큰 저장
+        localStorage.setItem('accessToken', tokenInfo.accessToken);
+        localStorage.setItem('refreshToken', tokenInfo.refreshToken);
+        localStorage.setItem('memberId', memberInfo.memberId);
+        localStorage.setItem('memberRole', memberInfo.role);
+
+        // 상태 업데이트
+        setIsLoggedIn(true);
+        setUserType('volunteer');
+
+        alert('봉사자 회원가입이 완료되었습니다! 자동으로 로그인됩니다.');
+        setCurrentPage('home');
+      } else {
+        setError(data.error?.message || '회원가입에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('회원가입 오류:', err);
+      setError('서버와의 통신에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12">
       <div className="w-full max-w-2xl">
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          {/* 제목 */}
-          <h1 className="text-3xl font-bold text-gray-800 mb-8">회원가입</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-8">봉사자 회원가입</h1>
+
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
 
           {/* SNS 회원가입 */}
           <div className="mb-8">
@@ -94,18 +157,21 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => handleSocialSignup('Facebook')}
+                disabled={loading}
                 className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               >
                 f
               </button>
               <button
                 onClick={() => handleSocialSignup('Kakao')}
+                disabled={loading}
                 className="w-14 h-14 rounded-full bg-[#FEE500] text-gray-800 flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               >
                 K
               </button>
               <button
                 onClick={() => handleSocialSignup('Naver')}
+                disabled={loading}
                 className="w-14 h-14 rounded-full bg-[#03C75A] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               >
                 N
@@ -113,53 +179,58 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
             </div>
           </div>
 
-          {/* 구분선 */}
           <div className="my-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300"></div>
               </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500">또는 이메일로 가입</span>
+              </div>
             </div>
           </div>
 
-          {/* 회원가입 폼 */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 이름 */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                이름 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="홍길동"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
+                required
+                disabled={loading}
+              />
+            </div>
+
             {/* 이메일 */}
             <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">이메일</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="이메일"
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                  required
-                />
-                <select
-                  name="emailDomain"
-                  value={formData.emailDomain}
-                  onChange={handleInputChange}
-                  className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                >
-                  {emailDomains.map((domain) => (
-                    <option key={domain} value={domain}>{domain}</option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                className="w-full mt-2 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                이메일 인증하기
-              </button>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                이메일 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="volunteer@example.com"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
+                required
+                disabled={loading}
+              />
             </div>
 
             {/* 비밀번호 */}
             <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">비밀번호</label>
-              <p className="text-xs text-gray-500 mb-2">영문, 숫자를 포함한 8자 이상의 비밀번호를 입력해주세요.</p>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                비밀번호 <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500 mb-2">영문, 숫자, 특수문자를 포함한 8~20자</p>
               <input
                 type="password"
                 name="password"
@@ -168,12 +239,15 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
                 placeholder="비밀번호"
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
                 required
+                disabled={loading}
               />
             </div>
 
             {/* 비밀번호 확인 */}
             <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">비밀번호 확인</label>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                비밀번호 확인 <span className="text-red-500">*</span>
+              </label>
               <input
                 type="password"
                 name="passwordConfirm"
@@ -182,120 +256,152 @@ export default function VolunteerSignup({ setCurrentPage, setIsLoggedIn, setUser
                 placeholder="비밀번호 확인"
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
                 required
+                disabled={loading}
               />
             </div>
 
-            {/* 닉네임 */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">닉네임</label>
-              <p className="text-xs text-gray-500 mb-2">다른 유저와 겹치지 않도록 입력해주세요. (2~20자)</p>
-              <input
-                type="text"
-                name="nickname"
-                value={formData.nickname}
-                onChange={handleInputChange}
-                placeholder="별명 (2~20자)"
-                minLength={2}
-                maxLength={20}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
-                required
-              />
+            {/* 주소 */}
+            <div className="border border-yellow-300 rounded-xl p-6 space-y-4">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">📍 주소</h3>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  우편번호 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={formData.postalCode}
+                  onChange={handleInputChange}
+                  placeholder="12345"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  도로명 주소 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="streetAddress"
+                  value={formData.streetAddress}
+                  onChange={handleInputChange}
+                  placeholder="서울특별시 강남구 테헤란로"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  상세 주소
+                </label>
+                <input
+                  type="text"
+                  name="detailAddress"
+                  value={formData.detailAddress}
+                  onChange={handleInputChange}
+                  placeholder="101동 1001호"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             {/* 약관동의 */}
             <div className="pt-6 border-t border-gray-200">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">약관동의</h3>
               
-              {/* 전체동의 */}
               <label className="flex items-center gap-3 p-3 mb-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={agreements.all}
                   onChange={() => handleAgreementChange('all')}
                   className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                  disabled={loading}
                 />
                 <span className="font-semibold text-gray-800">전체동의</span>
                 <span className="text-sm text-gray-500">선택항목에 대한 동의 포함</span>
               </label>
 
               <div className="space-y-2">
-                {/* 만 14세 이상 */}
                 <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
                   <input
                     type="checkbox"
                     checked={agreements.age}
                     onChange={() => handleAgreementChange('age')}
                     className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                    disabled={loading}
                   />
                   <span className="text-gray-700">만 14세 이상입니다</span>
-                  <span className="text-sm text-blue-600">(필수)</span>
+                  <span className="text-sm text-red-600">(필수)</span>
                 </label>
 
-                {/* 이용약관 */}
                 <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
                   <input
                     type="checkbox"
                     checked={agreements.terms}
                     onChange={() => handleAgreementChange('terms')}
                     className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                    disabled={loading}
                   />
                   <span className="flex-1 text-gray-700">이용약관</span>
-                  <span className="text-sm text-blue-600">(필수)</span>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  <span className="text-sm text-red-600">(필수)</span>
                 </label>
 
-                {/* 개인정보 마케팅 활용 */}
                 <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
                   <input
                     type="checkbox"
                     checked={agreements.privacy}
                     onChange={() => handleAgreementChange('privacy')}
                     className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                    disabled={loading}
                   />
-                  <span className="flex-1 text-gray-700">개인정보 마케팅 활용 동의</span>
-                  <span className="text-sm text-gray-500">(선택)</span>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  <span className="flex-1 text-gray-700">개인정보 수집 및 이용 동의</span>
+                  <span className="text-sm text-red-600">(필수)</span>
                 </label>
 
-                {/* SMS 수신 동의 */}
                 <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
                   <input
                     type="checkbox"
                     checked={agreements.marketing}
                     onChange={() => handleAgreementChange('marketing')}
                     className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                    disabled={loading}
                   />
                   <span className="flex-1 text-gray-700">이벤트, 쿠폰, 특가 알림 메일 및 SMS 등 수신</span>
                   <span className="text-sm text-gray-500">(선택)</span>
                 </label>
 
-                {/* 로봇이 아닙니다 */}
                 <label className="flex items-center gap-3 p-4 cursor-pointer bg-yellow-50 border-2 border-yellow-400 rounded-lg">
                   <input
                     type="checkbox"
                     checked={agreements.robot}
                     onChange={() => handleAgreementChange('robot')}
                     className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"
+                    disabled={loading}
                   />
                   <span className="font-semibold text-gray-800">로봇이 아닙니다.</span>
+                  <span className="text-sm text-red-600">(필수)</span>
                 </label>
               </div>
             </div>
 
-            {/* 회원가입 버튼 */}
             <button
               type="submit"
-              className="w-full py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg hover:bg-yellow-500 transition-colors shadow-md"
+              disabled={loading}
+              className={`w-full py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg transition-colors shadow-md ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-500'
+              }`}
             >
-              회원가입하기
+              {loading ? '회원가입 처리 중...' : '회원가입하기'}
             </button>
           </form>
 
-          {/* 로그인 링크 */}
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               이미 아이디가 있으신가요?{' '}

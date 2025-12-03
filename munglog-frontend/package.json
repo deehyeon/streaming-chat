@@ -4,13 +4,17 @@
   "description": "유기견 보호소 봉사 신청 서비스",
   "private": true,
   "dependencies": {
+    "@react-three/drei": "^9.105.6",
+    "@react-three/fiber": "^8.15.0",
+    "@stomp/stompjs": "^7.0.0",
+    "ajv": "^8.17.1",
+    "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^7.10.0",
     "react-scripts": "5.0.1",
-    "lucide-react": "^0.263.1",
-    "three": "^0.128.0",
     "sockjs-client": "^1.6.1",
-    "@stomp/stompjs": "^7.0.0"
+    "three": "^0.159.0"
   },
   "scripts": {
     "start": "react-scripts start",

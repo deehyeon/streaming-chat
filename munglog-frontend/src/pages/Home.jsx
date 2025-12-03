@@ -261,7 +261,7 @@ export default function Home() {
       positions.forEach(([px, py, pz, scale]) => {
         const cloudPart = new THREE.Mesh(
           new THREE.SphereGeometry(0.5, 16, 16),
-          new THREE.MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.9 })
+          new THREE.MeshLambertMaterial({ color: 0xFFFFFF, transparent: false, opacity: 1 })
         );
         cloudPart.position.set(px, py, pz);
         cloudPart.scale.set(scale, scale * 0.7, scale * 0.8);

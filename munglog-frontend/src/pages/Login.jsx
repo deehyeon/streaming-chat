@@ -1,34 +1,70 @@
 import React, { useState } from 'react';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://158.180.75.249:8080';
+
 export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // TODO: 실제 로그인 로직 구현
-    if (email && password) {
-      setIsLoggedIn(true);
-      // 테스트를 위해 이메일로 사용자 타입 구분 (실제로는 서버에서 받아와야 함)
-      // volunteer로 테스트하려면 이메일에 'volunteer'를 포함
-      if (email.includes('volunteer')) {
-        setUserType('volunteer');
-      } else if (email.includes('shelter')) {
-        setUserType('shelter');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.result === 'SUCCESS' && data.data) {
+        const { tokenInfo, memberInfo } = data.data;
+
+        // 토큰 저장 (localStorage)
+        localStorage.setItem('accessToken', tokenInfo.accessToken);
+        localStorage.setItem('refreshToken', tokenInfo.refreshToken);
+        localStorage.setItem('memberId', memberInfo.memberId);
+        localStorage.setItem('memberRole', memberInfo.role);
+
+        // 상태 업데이트
+        setIsLoggedIn(true);
+        
+        // 역할에 따라 userType 설정
+        if (memberInfo.role === 'VOLUNTEER') {
+          setUserType('volunteer');
+        } else if (memberInfo.role === 'SHELTER') {
+          setUserType('shelter');
+        } else {
+          setUserType('volunteer'); // 기본값
+        }
+
+        // 홈으로 이동
+        setCurrentPage('home');
       } else {
-        // 기본값은 봉사자로 설정
-        setUserType('volunteer');
+        // 에러 처리
+        setError(data.error?.message || '로그인에 실패했습니다.');
       }
-      setCurrentPage('home');
+    } catch (err) {
+      console.error('로그인 오류:', err);
+      setError('서버와의 통신에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSocialLogin = (provider) => {
     // TODO: SNS 로그인 로직 구현
-    console.log(`${provider} 로그인`);
-    setIsLoggedIn(true);
-    setUserType('volunteer'); // 기본값으로 봉사자 설정
-    setCurrentPage('home');
+    alert(`${provider} 로그인 기능은 준비 중입니다.`);
   };
 
   return (
@@ -43,15 +79,23 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
         {/* 로그인 폼 */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* 에러 메시지 */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
             {/* 이메일 입력 */}
             <div>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="이메일 (테스트: volunteer@test.com)"
+                placeholder="이메일"
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -64,15 +108,21 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
                 placeholder="비밀번호"
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
                 required
+                disabled={loading}
               />
             </div>
 
             {/* 로그인 버튼 */}
             <button
               type="submit"
-              className="w-full py-3 bg-yellow-400 text-gray-800 rounded-lg font-bold hover:bg-yellow-500 transition-colors shadow-md"
+              disabled={loading}
+              className={`w-full py-3 bg-yellow-400 text-gray-800 rounded-lg font-bold transition-colors shadow-md ${
+                loading 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-yellow-500'
+              }`}
             >
-              로그인
+              {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
@@ -114,6 +164,7 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
               onClick={() => handleSocialLogin('Facebook')}
               className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               aria-label="Facebook 로그인"
+              disabled={loading}
             >
               f
             </button>
@@ -123,6 +174,7 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
               onClick={() => handleSocialLogin('Kakao')}
               className="w-14 h-14 rounded-full bg-[#FEE500] text-gray-800 flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               aria-label="Kakao 로그인"
+              disabled={loading}
             >
               K
             </button>
@@ -132,6 +184,7 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
               onClick={() => handleSocialLogin('Naver')}
               className="w-14 h-14 rounded-full bg-[#03C75A] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
               aria-label="Naver 로그인"
+              disabled={loading}
             >
               N
             </button>

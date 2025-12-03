@@ -19,14 +19,15 @@ import VolunteerMyPage from './pages/VolunteerMyPage';
 import ShelterMyPage from './pages/ShelterMyPage';
 import MyPage from './pages/MyPage';
 import Chat from './pages/Chat';
+import ShelterIsland from './pages/ShelterIsland';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('home');
+  const [currentPage, setCurrentPage] = useState('shelter-island'); // 초기 페이지
   const [selectedRegion, setSelectedRegion] = useState('강남구');
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [likedItems, setLikedItems] = useState(new Set());
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userType, setUserType] = useState(null); // 'volunteer', 'shelter', null
+  const [userType, setUserType] = useState(null);
   const [selectedShelterId, setSelectedShelterId] = useState(null);
   const [selectedDogId, setSelectedDogId] = useState(null);
 
@@ -68,6 +69,12 @@ export default function App() {
     setSelectedDogId
   };
 
+  // ShelterIsland 페이지는 전체 화면으로 렌더링 (Header/Footer 없음)
+  if (currentPage === 'shelter-island') {
+    return <ShelterIsland setCurrentPage={setCurrentPage} />;
+  }
+
+  // 다른 모든 페이지는 Header/Footer와 함께 렌더링
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 

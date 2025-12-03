@@ -1,25 +1,31 @@
 import React, { useState } from 'react';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://158.180.75.249:8080';
+
 export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserType }) {
   const [step, setStep] = useState(1); // 1: 기본 정보, 2: 보호소 정보
   
   const [formData, setFormData] = useState({
     // 1단계: 기본 회원 정보
+    name: '',
     email: '',
     password: '',
     passwordConfirm: '',
+    postalCode: '',
+    streetAddress: '',
+    detailAddress: '',
     
     // 2단계: 보호소 정보
     shelterName: '',
-    address: '',
-    managerName: '',
+    shelterPhone: '',
+    shelterEmail: '',
     websiteLinks: [''],
-    operatingStatus: '', // 운영 여부
-    openingHours: '', // 운영 시간
-    volunteerAvailable: '', // 봉사 가능 여부
-    volunteerTime: '', // 봉사 가능 시간
-    shelterArea: '', // 보호소 면적
-    description: '' // 상세 설명
+    description: '',
+    openingHours: '',
+    volunteerInfo: '',
+    shelterPostalCode: '',
+    shelterStreetAddress: '',
+    shelterDetailAddress: ''
   });
 
   const [agreements, setAgreements] = useState({
@@ -31,9 +37,8 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
     robot: false
   });
 
-  const [verification, setVerification] = useState({
-    emailVerified: false
-  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -44,7 +49,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
   };
 
   const addWebsiteLink = () => {
-    if (formData.websiteLinks.length < 5) {
+    if (formData.websiteLinks.length < 10) {
       setFormData(prev => ({
         ...prev,
         websiteLinks: [...prev.websiteLinks, '']
@@ -91,73 +96,144 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
     }
   };
 
-  const handleEmailVerification = () => {
-    if (!formData.email) {
-      alert('이메일을 입력해주세요.');
-      return;
-    }
-    alert('인증 이메일이 발송되었습니다.');
-    setVerification(prev => ({ ...prev, emailVerified: true }));
-  };
-
   const handleSocialSignup = (provider) => {
-    console.log(`${provider} 보호소 회원가입`);
-    // 소셜 로그인 후 2단계(보호소 정보 입력)로 이동
-    setStep(2);
-    window.scrollTo(0, 0);
+    alert(`${provider} 보호소 회원가입 기능은 준비 중입니다.`);
   };
 
   const handleStep1Submit = (e) => {
     e.preventDefault();
-    
-    if (!verification.emailVerified) {
-      alert('이메일 인증을 완료해주세요.');
-      return;
-    }
+    setError('');
 
     if (!agreements.age || !agreements.terms || !agreements.privacy || !agreements.robot) {
-      alert('필수 약관에 동의해주세요.');
+      setError('필수 약관에 동의해주세요.');
       return;
     }
 
     if (formData.password !== formData.passwordConfirm) {
-      alert('비밀번호가 일치하지 않습니다.');
+      setError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
     if (formData.password.length < 8) {
-      alert('비밀번호는 8자 이상이어야 합니다.');
+      setError('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
 
-    // 1단계 완료, 2단계로 이동
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,20}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('비밀번호는 영문, 숫자, 특수문자를 포함하여 8~20자여야 합니다.');
+      return;
+    }
+
     setStep(2);
     window.scrollTo(0, 0);
   };
 
-  const handleStep2Submit = (e) => {
+  const handleStep2Submit = async (e) => {
     e.preventDefault();
+    setError('');
 
     // 필수 필드 검증
-    if (!formData.shelterName || !formData.address || !formData.managerName) {
-      alert('필수 정보를 모두 입력해주세요.');
+    if (!formData.shelterName || !formData.shelterPhone || !formData.shelterEmail) {
+      setError('보호소 필수 정보를 모두 입력해주세요.');
       return;
     }
 
-    // 회원가입 완료
-    console.log('보호소 회원가입 완료:', formData);
-    
-    // 자동 로그인 처리
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userType', 'shelter');
-    localStorage.setItem('userEmail', formData.email);
-    
-    // 부모 컴포넌트의 상태 업데이트
-    if (setIsLoggedIn) setIsLoggedIn(true);
-    if (setUserType) setUserType('shelter');
-    
-    alert('보호소 센터 회원가입이 완료되었습니다! 자동으로 로그인됩니다.');
-    setCurrentPage('home');
+    // 전화번호 형식 검증
+    const phoneRegex = /^0\d{1,2}-\d{3,4}-\d{4}$/;
+    if (!phoneRegex.test(formData.shelterPhone)) {
+      setError('올바른 전화번호 형식이 아닙니다. (예: 02-1234-5678)');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1단계: 회원가입
+      const signupBody = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: 'SHELTER',
+        address: {
+          postalCode: formData.postalCode,
+          streetAddress: formData.streetAddress,
+          detailAddress: formData.detailAddress
+        }
+      };
+
+      const signupResponse = await fetch(`${API_BASE_URL}/v1/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signupBody),
+      });
+
+      const signupData = await signupResponse.json();
+
+      if (signupData.result !== 'SUCCESS' || !signupData.data) {
+        setError(signupData.error?.message || '회원가입에 실패했습니다.');
+        setLoading(false);
+        return;
+      }
+
+      const { tokenInfo, memberInfo } = signupData.data;
+
+      // 토큰 저장
+      localStorage.setItem('accessToken', tokenInfo.accessToken);
+      localStorage.setItem('refreshToken', tokenInfo.refreshToken);
+      localStorage.setItem('memberId', memberInfo.memberId);
+      localStorage.setItem('memberRole', memberInfo.role);
+
+      // 2단계: 보호소 등록
+      const shelterBody = {
+        name: formData.shelterName,
+        phone: formData.shelterPhone,
+        email: formData.shelterEmail,
+        urls: formData.websiteLinks.filter(link => link.trim() !== ''),
+        description: formData.description || null,
+        openingHours: formData.openingHours || null,
+        volunteerInfo: formData.volunteerInfo || null,
+        address: {
+          postalCode: formData.shelterPostalCode,
+          streetAddress: formData.shelterStreetAddress,
+          detailAddress: formData.shelterDetailAddress
+        },
+        shelterImageUrls: null,
+        shelterDogsImageUrls: null
+      };
+
+      const shelterResponse = await fetch(`${API_BASE_URL}/v1/shelters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenInfo.accessToken}`
+        },
+        body: JSON.stringify(shelterBody),
+      });
+
+      const shelterData = await shelterResponse.json();
+
+      if (shelterData.result !== 'SUCCESS') {
+        setError(shelterData.error?.message || '보호소 등록에 실패했습니다.');
+        setLoading(false);
+        return;
+      }
+
+      // 상태 업데이트
+      setIsLoggedIn(true);
+      setUserType('shelter');
+
+      alert('보호소 센터 회원가입이 완료되었습니다! 자동으로 로그인됩니다.');
+      setCurrentPage('home');
+
+    } catch (err) {
+      console.error('회원가입 오류:', err);
+      setError('서버와의 통신에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,6 +248,13 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
               {step === 1 ? '기본 정보를 입력해주세요' : '보호소 정보를 등록해주세요'}
             </p>
           </div>
+
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
 
           {/* 진행 단계 표시 */}
           <div className="flex items-center justify-center mb-8">
@@ -198,18 +281,21 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                 <div className="flex justify-center gap-4">
                   <button 
                     onClick={() => handleSocialSignup('Facebook')} 
+                    disabled={loading}
                     className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
                   >
                     f
                   </button>
                   <button 
                     onClick={() => handleSocialSignup('Kakao')} 
+                    disabled={loading}
                     className="w-14 h-14 rounded-full bg-[#FEE500] text-gray-800 flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
                   >
                     K
                   </button>
                   <button 
                     onClick={() => handleSocialSignup('Naver')} 
+                    disabled={loading}
                     className="w-14 h-14 rounded-full bg-[#03C75A] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
                   >
                     N
@@ -235,42 +321,41 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                   
                   <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      담당자 이름 <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="name" 
+                      value={formData.name} 
+                      onChange={handleInputChange} 
+                      placeholder="홍길동" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                      required 
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
                       이메일 (아이디로 사용) <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="email" 
-                        name="email" 
-                        value={formData.email} 
-                        onChange={handleInputChange} 
-                        placeholder="shelter@example.com" 
-                        className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
-                        required 
-                        disabled={verification.emailVerified}
-                      />
-                      <button 
-                        type="button" 
-                        onClick={handleEmailVerification} 
-                        disabled={verification.emailVerified}
-                        className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                          verification.emailVerified 
-                            ? 'bg-green-500 text-white cursor-not-allowed' 
-                            : 'bg-yellow-400 text-gray-800 hover:bg-yellow-500'
-                        }`}
-                      >
-                        {verification.emailVerified ? '✓ 인증완료' : '이메일 인증'}
-                      </button>
-                    </div>
-                    {verification.emailVerified && (
-                      <p className="text-sm text-green-600 mt-1">✓ 이메일 인증이 완료되었습니다.</p>
-                    )}
+                    <input 
+                      type="email" 
+                      name="email" 
+                      value={formData.email} 
+                      onChange={handleInputChange} 
+                      placeholder="shelter@example.com" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                      required 
+                      disabled={loading}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
                       비밀번호 <span className="text-red-500">*</span>
                     </label>
-                    <p className="text-xs text-gray-500 mb-2">영문, 숫자를 포함한 8자 이상의 비밀번호를 입력해주세요.</p>
+                    <p className="text-xs text-gray-500 mb-2">영문, 숫자, 특수문자를 포함한 8~20자</p>
                     <input 
                       type="password" 
                       name="password" 
@@ -279,6 +364,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                       placeholder="비밀번호" 
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
                       required 
+                      disabled={loading}
                     />
                   </div>
 
@@ -294,6 +380,59 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                       placeholder="비밀번호 확인" 
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
                       required 
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                {/* 담당자 주소 */}
+                <div className="border border-yellow-300 rounded-xl p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">📍 담당자 주소</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      우편번호 <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="postalCode" 
+                      value={formData.postalCode} 
+                      onChange={handleInputChange} 
+                      placeholder="12345" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                      required 
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      도로명 주소 <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="streetAddress" 
+                      value={formData.streetAddress} 
+                      onChange={handleInputChange} 
+                      placeholder="서울특별시 강남구 테헤란로" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                      required 
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                      상세 주소
+                    </label>
+                    <input 
+                      type="text" 
+                      name="detailAddress" 
+                      value={formData.detailAddress} 
+                      onChange={handleInputChange} 
+                      placeholder="101동 1001호" 
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -308,6 +447,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                       checked={agreements.all} 
                       onChange={() => handleAgreementChange('all')} 
                       className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                      disabled={loading}
                     />
                     <span className="font-semibold text-gray-800">전체동의</span>
                     <span className="text-sm text-gray-500">선택항목에 대한 동의 포함</span>
@@ -320,6 +460,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                         checked={agreements.age} 
                         onChange={() => handleAgreementChange('age')} 
                         className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                        disabled={loading}
                       />
                       <span className="text-gray-700">만 14세 이상입니다</span>
                       <span className="text-sm text-red-600">(필수)</span>
@@ -331,12 +472,10 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                         checked={agreements.terms} 
                         onChange={() => handleAgreementChange('terms')} 
                         className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                        disabled={loading}
                       />
                       <span className="flex-1 text-gray-700">이용약관</span>
                       <span className="text-sm text-red-600">(필수)</span>
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
                     </label>
 
                     <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
@@ -345,12 +484,10 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                         checked={agreements.privacy} 
                         onChange={() => handleAgreementChange('privacy')} 
                         className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                        disabled={loading}
                       />
                       <span className="flex-1 text-gray-700">개인정보 수집 및 이용 동의</span>
                       <span className="text-sm text-red-600">(필수)</span>
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
                     </label>
 
                     <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg">
@@ -359,6 +496,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                         checked={agreements.marketing} 
                         onChange={() => handleAgreementChange('marketing')} 
                         className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                        disabled={loading}
                       />
                       <span className="flex-1 text-gray-700">이벤트, 쿠폰, 특가 알림 메일 및 SMS 등 수신</span>
                       <span className="text-sm text-gray-500">(선택)</span>
@@ -370,6 +508,7 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                         checked={agreements.robot} 
                         onChange={() => handleAgreementChange('robot')} 
                         className="w-5 h-5 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" 
+                        disabled={loading}
                       />
                       <span className="font-semibold text-gray-800">로봇이 아닙니다.</span>
                       <span className="text-sm text-red-600">(필수)</span>
@@ -379,7 +518,10 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
 
                 <button 
                   type="submit" 
-                  className="w-full py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg hover:bg-yellow-500 transition-colors shadow-md"
+                  disabled={loading}
+                  className={`w-full py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg transition-colors shadow-md ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-500'
+                  }`}
                 >
                   다음 단계로
                 </button>
@@ -389,9 +531,9 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
 
           {step === 2 && (
             <form onSubmit={handleStep2Submit} className="space-y-6">
-              {/* 보호소 정보 */}
+              {/* 보호소 기본 정보 */}
               <div className="border border-yellow-300 rounded-xl p-6 space-y-4">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">📋 보호소 정보</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-4">📋 보호소 기본 정보</h3>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -402,45 +544,49 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                     name="shelterName" 
                     value={formData.shelterName} 
                     onChange={handleInputChange}
-                    placeholder="강남 보호소"
+                    placeholder="사랑 동물 보호소"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
                     required 
+                    disabled={loading}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    보호소 주소 <span className="text-red-500">*</span>
+                    보호소 전화번호 <span className="text-red-500">*</span>
                   </label>
                   <input 
                     type="text" 
-                    name="address" 
-                    value={formData.address} 
+                    name="shelterPhone" 
+                    value={formData.shelterPhone} 
                     onChange={handleInputChange}
-                    placeholder="경기도 수원시 영통구 매향로"
+                    placeholder="02-1234-5678"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
                     required 
+                    disabled={loading}
                   />
+                  <p className="text-xs text-gray-500 mt-1">형식: 0X-XXXX-XXXX 또는 0XX-XXX-XXXX</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    담당자 이름 <span className="text-red-500">*</span>
+                    보호소 이메일 <span className="text-red-500">*</span>
                   </label>
                   <input 
-                    type="text" 
-                    name="managerName" 
-                    value={formData.managerName} 
+                    type="email" 
+                    name="shelterEmail" 
+                    value={formData.shelterEmail} 
                     onChange={handleInputChange}
-                    placeholder="홍길동"
+                    placeholder="shelter@example.com"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
                     required 
+                    disabled={loading}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    홈페이지/SNS 링크 <span className="text-red-500">*</span>
+                    홈페이지/SNS 링크 (최대 10개)
                   </label>
                   <div className="space-y-2">
                     {formData.websiteLinks.map((link, index) => (
@@ -449,13 +595,15 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                           type="url" 
                           value={link} 
                           onChange={(e) => handleWebsiteLinkChange(index, e.target.value)}
-                          placeholder="보호소 이용을 알려주세요."
+                          placeholder="https://example.com"
                           className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                          disabled={loading}
                         />
                         {formData.websiteLinks.length > 1 && (
                           <button 
                             type="button" 
                             onClick={() => removeWebsiteLink(index)}
+                            disabled={loading}
                             className="px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             삭제
@@ -464,96 +612,117 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
                       </div>
                     ))}
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={addWebsiteLink}
-                    className="mt-2 text-red-500 text-lg hover:text-red-600"
-                  >
-                    +
-                  </button>
+                  {formData.websiteLinks.length < 10 && (
+                    <button 
+                      type="button" 
+                      onClick={addWebsiteLink}
+                      disabled={loading}
+                      className="mt-2 text-yellow-500 text-sm hover:text-yellow-600"
+                    >
+                      + 링크 추가
+                    </button>
+                  )}
                 </div>
+              </div>
+
+              {/* 보호소 운영 정보 */}
+              <div className="border border-yellow-300 rounded-xl p-6 space-y-4">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">⏰ 운영 정보</h3>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    보호소 운영 여부 <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    name="operatingStatus" 
-                    value={formData.operatingStatus} 
-                    onChange={handleInputChange}
-                    placeholder="소자만 입력해주세요."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    보호소 운영 시간 <span className="text-red-500">*</span>
+                    운영 시간
                   </label>
                   <input 
                     type="text" 
                     name="openingHours" 
                     value={formData.openingHours} 
                     onChange={handleInputChange}
-                    placeholder="소자만 입력해주세요."
+                    placeholder="평일 09:00-18:00, 주말 10:00-17:00"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                    disabled={loading}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    봉사 가능 여부 <span className="text-red-500">*</span>
+                    봉사 안내 정보
                   </label>
-                  <input 
-                    type="text" 
-                    name="volunteerAvailable" 
-                    value={formData.volunteerAvailable} 
+                  <textarea 
+                    name="volunteerInfo" 
+                    value={formData.volunteerInfo} 
                     onChange={handleInputChange}
-                    placeholder="소자만 입력해주세요."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                    placeholder="봉사는 사전 예약이 필요합니다. 평일 오전 10시부터 가능합니다."
+                    rows="3"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 resize-none" 
+                    disabled={loading}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    봉사 가능 시간 <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    name="volunteerTime" 
-                    value={formData.volunteerTime} 
-                    onChange={handleInputChange}
-                    placeholder="소자만 입력해주세요."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    보호소 면적 <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    name="shelterArea" 
-                    value={formData.shelterArea} 
-                    onChange={handleInputChange}
-                    placeholder="소자만 입력해주세요."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    보호소 상세 설명 <span className="text-red-500">*</span>
+                    보호소 상세 설명
                   </label>
                   <textarea 
                     name="description" 
                     value={formData.description} 
                     onChange={handleInputChange}
-                    placeholder="보호소 상세 설명을 입력해주세요."
+                    placeholder="유기동물을 사랑으로 보살피는 보호소입니다."
                     rows="5"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 resize-none" 
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* 보호소 주소 */}
+              <div className="border border-yellow-300 rounded-xl p-6 space-y-4">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">📍 보호소 주소</h3>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    우편번호 <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="shelterPostalCode" 
+                    value={formData.shelterPostalCode} 
+                    onChange={handleInputChange}
+                    placeholder="12345"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                    required 
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    도로명 주소 <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="shelterStreetAddress" 
+                    value={formData.shelterStreetAddress} 
+                    onChange={handleInputChange}
+                    placeholder="경기도 수원시 영통구 매향로"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                    required 
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    상세 주소
+                  </label>
+                  <input 
+                    type="text" 
+                    name="shelterDetailAddress" 
+                    value={formData.shelterDetailAddress} 
+                    onChange={handleInputChange}
+                    placeholder="1층"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400" 
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -561,16 +730,23 @@ export default function ShelterSignup({ setCurrentPage, setIsLoggedIn, setUserTy
               <div className="flex gap-3">
                 <button 
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    setStep(1);
+                    window.scrollTo(0, 0);
+                  }}
+                  disabled={loading}
                   className="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-lg font-bold text-lg hover:bg-gray-50 transition-colors"
                 >
                   이전 단계로
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg hover:bg-yellow-500 transition-colors shadow-md"
+                  disabled={loading}
+                  className={`flex-1 py-4 bg-yellow-400 text-gray-800 rounded-lg font-bold text-lg transition-colors shadow-md ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-500'
+                  }`}
                 >
-                  회원가입 완료
+                  {loading ? '처리 중...' : '회원가입 완료'}
                 </button>
               </div>
             </form>

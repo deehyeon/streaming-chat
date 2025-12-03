@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getShelters, searchSheltersByName } from '../api/shelterApi';
 
 export default function Shelters({ 
   selectedRegion, 
@@ -10,42 +11,11 @@ export default function Shelters({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('volunteer');
-
-  const shelters = [
-    {
-      id: 1,
-      name: '서울 강남 동물보호센터',
-      distance: '500m',
-      address: '서울시 강남구 역삼1동',
-      phone: '02-1234-5678',
-      hours: '평일 09:00-18:00',
-      rating: 4.8,
-      reviews: 24,
-      icon: '🏠'
-    },
-    {
-      id: 2,
-      name: '강남 한마음 보호소',
-      distance: '800m',
-      address: '서울시 강남구 역삼2동',
-      phone: '02-5678-9012',
-      hours: '토일 10:00-16:00',
-      rating: 4.6,
-      reviews: 18,
-      icon: '🏢'
-    },
-    {
-      id: 3,
-      name: '세란트 애견보호센터',
-      distance: '1.2km',
-      address: '서울시 강남구 삼성동',
-      phone: '02-3456-7890',
-      hours: '평일 10:00-17:00',
-      rating: 4.7,
-      reviews: 32,
-      icon: '🏛️'
-    }
-  ];
+  const [shelters, setShelters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPageNum] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const filters = [
     { id: 'volunteer', label: '🤝 봉사가능' },
@@ -54,10 +24,79 @@ export default function Shelters({
     { id: 'distance', label: '📍 거리순' }
   ];
 
+  // 보호소 목록 조회
+  useEffect(() => {
+    fetchShelters();
+  }, [selectedRegion, currentPage]);
+
+  // 검색어 변경 시 디바운싱
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery) {
+        handleSearch();
+      } else {
+        fetchShelters();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchShelters = async () => {
+    try {
+      setLoading(true);
+      const response = await getShelters({
+        region: selectedRegion === '전국' ? null : selectedRegion,
+        page: currentPage,
+        size: 10
+      });
+
+      setShelters(response.data.content);
+      setTotalPages(response.data.totalPages);
+      setError(null);
+    } catch (err) {
+      setError('보호소 목록을 불러오는데 실패했습니다.');
+      console.error('Error fetching shelters:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    try {
+      setLoading(true);
+      const response = await searchSheltersByName(searchQuery, currentPage);
+      setShelters(response.data.content);
+      setTotalPages(response.data.totalPages);
+      setError(null);
+    } catch (err) {
+      setError('검색에 실패했습니다.');
+      console.error('Error searching shelters:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleShelterClick = (shelterId) => {
     setSelectedShelterId(shelterId);
     setCurrentPage('shelter-detail');
   };
+
+  // 거리 계산 (임시 - 실제로는 백엔드에서 계산하거나 사용자 위치 기반)
+  const calculateDistance = (address) => {
+    return `${(Math.random() * 5).toFixed(1)}km`;
+  };
+
+  if (loading && shelters.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-4xl mb-4">🐕</div>
+          <p className="text-gray-600">보호소 목록을 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -137,73 +176,125 @@ export default function Shelters({
         </div>
       </div>
 
-      {/* Shelter List - 카드 크기와 글자 크기 축소 */}
-      <div className="space-y-3">
-        {shelters.map((shelter) => (
-          <div
-            key={shelter.id}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-xl transition-shadow cursor-pointer"
-            onClick={() => handleShelterClick(shelter.id)}
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+          <p className="text-red-600">{error}</p>
+          <button
+            onClick={fetchShelters}
+            className="mt-2 text-red-500 hover:text-red-700 font-medium text-sm"
           >
-            <div className="flex gap-4">
-              {/* 보호소 아이콘 - 크기 축소 */}
-              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
-                {shelter.icon}
-              </div>
+            다시 시도
+          </button>
+        </div>
+      )}
 
-              {/* 보호소 정보 */}
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-base font-bold text-gray-800">
-                    {shelter.name}
-                  </h3>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLike(shelter.id);
-                    }}
-                    className="text-xl hover:scale-110 transition-transform"
-                  >
-                    {likedItems.has(shelter.id) ? '❤️' : '🤍'}
-                  </button>
+      {/* Shelter List */}
+      {shelters.length === 0 && !loading ? (
+        <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+          <div className="text-5xl mb-4">🏠</div>
+          <p className="text-gray-600 text-lg font-medium">보호소를 찾을 수 없습니다</p>
+          <p className="text-gray-500 text-sm mt-2">다른 지역을 선택하거나 검색어를 변경해보세요</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {shelters.map((shelter) => (
+            <div
+              key={shelter.shelterId}
+              className="bg-white rounded-xl shadow-md p-4 hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => handleShelterClick(shelter.shelterId)}
+            >
+              <div className="flex gap-4">
+                {/* 보호소 아이콘 */}
+                <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
+                  🏠
                 </div>
 
-                <div className="space-y-1 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <span className="text-yellow-500 font-semibold">📍 {shelter.distance}</span>
-                    <span>{shelter.address}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>📞 {shelter.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>🕐 {shelter.hours}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-yellow-500 text-lg">⭐</span>
-                    <span className="font-bold text-gray-800 text-sm">{shelter.rating}</span>
-                    <span className="text-gray-500 text-xs">({shelter.reviews})</span>
-                  </div>
-                  <button className="text-yellow-500 hover:text-yellow-600 font-medium text-sm flex items-center gap-1 group">
-                    자세히
-                    <svg 
-                      className="w-4 h-4 group-hover:translate-x-1 transition-transform" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
+                {/* 보호소 정보 */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-base font-bold text-gray-800">
+                      {shelter.name}
+                    </h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLike(shelter.shelterId);
+                      }}
+                      className="text-xl hover:scale-110 transition-transform"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                      {likedItems.has(shelter.shelterId) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-500 font-semibold">
+                        📍 {calculateDistance(shelter.address)}
+                      </span>
+                      <span>
+                        {shelter.address?.streetAddress || shelter.address?.detailAddress || '주소 정보 없음'}
+                      </span>
+                    </div>
+                    {shelter.openingHours && (
+                      <div className="flex items-center gap-2">
+                        <span>🕐 {shelter.openingHours}</span>
+                      </div>
+                    )}
+                    {shelter.volunteerInfo && (
+                      <div className="flex items-center gap-2">
+                        <span>🤝 {shelter.volunteerInfo.substring(0, 50)}{shelter.volunteerInfo.length > 50 ? '...' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-500 text-lg">⭐</span>
+                      <span className="font-bold text-gray-800 text-sm">-</span>
+                      <span className="text-gray-500 text-xs">(리뷰 준비중)</span>
+                    </div>
+                    <button className="text-yellow-500 hover:text-yellow-600 font-medium text-sm flex items-center gap-1 group">
+                      자세히
+                      <svg 
+                        className="w-4 h-4 group-hover:translate-x-1 transition-transform" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => setCurrentPageNum(Math.max(0, currentPage - 1))}
+            disabled={currentPage === 0}
+            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-30 hover:bg-gray-50"
+          >
+            이전
+          </button>
+          <span className="px-4 py-2 text-gray-600">
+            {currentPage + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPageNum(Math.min(totalPages - 1, currentPage + 1))}
+            disabled={currentPage === totalPages - 1}
+            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-30 hover:bg-gray-50"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }
