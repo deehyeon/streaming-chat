@@ -11,8 +11,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/v1/auth")
@@ -42,6 +45,25 @@ public class AuthController {
     public ApiResponse<MemberLoginInfo> login(@RequestBody @Valid MemberLoginRequest memberLoginRequest) {
         MemberLoginInfo loginInfo = auth.login(memberLoginRequest);
         return ApiResponse.success(loginInfo);
+    }
+
+    @GetMapping("/google")
+    public String googleLogin(@RequestParam("role") String role) {
+
+        // 요청 URL 생성
+        String redirectUrl = UriComponentsBuilder
+                .fromPath(OAuth2AuthorizationRequestRedirectFilter.DEFAULT_AUTHORIZATION_REQUEST_BASE_URI)
+                .path("/google")
+                .queryParam("role", role)
+                .toUriString();
+
+        return "redirect:" + redirectUrl;
+    }
+
+    @GetMapping("/login-success")
+    @ResponseBody
+    public ResponseEntity<?> loginSuccess() {
+        return ResponseEntity.ok("소셜 로그인 성공! 쿠키에 access_token / refresh_token 이 저장되었습니다.");
     }
 
     @Operation(
