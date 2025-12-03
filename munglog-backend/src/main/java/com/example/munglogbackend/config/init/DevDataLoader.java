@@ -72,8 +72,12 @@ public class DevDataLoader implements CommandLineRunner {
 
         // 5. VolunteerApplication 생성 (일부 회원들로)
         log.info("📋 Step 4/4: 봉사 신청 생성...");
-        List<VolunteerApplication> applications = createVolunteerApplications(allMembers, shelters);
-        log.info("✅ {} Volunteer Applications created", applications.size());
+        try {
+            List<VolunteerApplication> applications = createVolunteerApplications(allMembers, shelters);
+            log.info("✅ {} Volunteer Applications created", applications.size());
+        } catch (Exception e) {
+            log.error("❌ 봉사 신청 생성 중 오류 발생 - 나머지 데이터는 유지합니다.", e);
+        }
 
         log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         log.info("🎉 개발용 Mock 데이터 로딩 완료!");
@@ -211,12 +215,18 @@ public class DevDataLoader implements CommandLineRunner {
             for (int j = 0; j < applicationCount; j++) {
                 Shelter shelter = shelters.get((i + j) % shelters.size());
 
+                LocalDate date = today.plusDays(5 + (i % 15));
+
+                // ✅ startTime 먼저 정하고, endTime은 항상 그 이후로
+                LocalTime startTime = LocalTime.of(9 + (i % 3), 0);        // 9,10,11시
+                LocalTime endTime = startTime.plusHours(3);                // 12,13,14시
+
                 VolunteerApplication app = VolunteerApplication.createApplication(
                         volunteer,
                         shelter,
-                        today.plusDays(5 + (i % 15)),
-                        LocalTime.of(10 + (i % 5), 0),
-                        LocalTime.of(14 + (i % 3), 0),
+                        date,
+                        startTime,
+                        endTime,
                         "봉사 신청합니다. 열심히 하겠습니다!"
                 );
 
