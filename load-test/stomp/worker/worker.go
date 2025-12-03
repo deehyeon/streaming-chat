@@ -111,26 +111,33 @@ func readLoop(conn *websocket.Conn, cfg *config.Config, workerID int, shared *Sh
 			// STOMP MESSAGE 프레임 파싱
 			msg, err := stomp.ParseMessage(frame)
 			if err != nil {
+				// CONNECTED, RECEIPT, HEARTBEAT 등 MESSAGE가 아닌 경우일 수 있으니 조용히 스킵
 				continue
 			}
 
-			// roomId 확인
+			// 1️⃣ 같은 방인지 확인 (필수 필터)
 			if msg.RoomId != cfg.RoomID {
 				continue
 			}
 
-			// 자기가 보낸 메시지인지 content 기반으로 확인
+			// 2️⃣ 일단 "이 방으로 들어온 메시지"는 전부 수신 카운트에 반영
+			shared.ReceiveMessageCount.Add(1)
+			metrics.MessagesReceived.Inc()
+
+			// 3️⃣ content 기반으로 messageKey 추출 (없으면 latency 측정은 건너뜀)
 			messageKey := stomp.ExtractMessageKey(msg.Content)
 			if messageKey == "" {
+				// 방 통계용 수신 카운트만 반영하고 종료
 				continue
 			}
 
-			// 자기 워커의 메시지인지 확인
+			// 4️⃣ 자기 워커가 보낸 메시지인지 확인 (latency 측정은 "자기 것"만)
 			if !strings.HasPrefix(messageKey, fmt.Sprintf("W%d-", workerID)) {
+				// 다른 워커 / 다른 클라이언트가 보낸 메시지 → 수신 카운트만 유지
 				continue
 			}
 
-			// pending에서 찾아서 latency 계산
+			// 5️⃣ pending에서 찾아서 latency 계산
 			if sentTimeVal, ok := shared.PendingMessages.LoadAndDelete(messageKey); ok {
 				sentTime := sentTimeVal.(time.Time)
 				latency := float64(time.Since(sentTime).Microseconds()) / 1000.0 // ms
@@ -138,14 +145,11 @@ func readLoop(conn *websocket.Conn, cfg *config.Config, workerID int, shared *Sh
 				// Prometheus 메트릭 업데이트
 				metrics.MessageLatency.Observe(latency)
 				metrics.MessageLatencySummary.Observe(latency)
-				metrics.MessagesReceived.Inc()
 
-				// 슬라이스에도 저장
 				shared.ResultsMutex.Lock()
 				shared.MessageLatencyList = append(shared.MessageLatencyList, latency)
 				shared.ResultsMutex.Unlock()
 
-				shared.ReceiveMessageCount.Add(1)
 				shared.SuccessCount.Add(1)
 				metrics.SuccessTotal.Inc()
 			}

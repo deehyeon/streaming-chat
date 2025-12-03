@@ -3,9 +3,7 @@ package stomp
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
 )
 
 // MessageType 메시지 타입
@@ -22,59 +20,68 @@ const (
 
 // ChatMessage 메시지 수신 구조체 (백엔드 ChatMessageDto와 동일)
 type ChatMessage struct {
-	RoomId    int64       `json:"roomId"`
-	SenderId  int64       `json:"senderId"`
-	Type      MessageType `json:"type"`
-	Content   string      `json:"content"`
-	FileUrl   *string     `json:"fileUrl"`
-	FileName  *string     `json:"fileName"`
-	FileSize  *int64      `json:"fileSize"`
-	CreatedAt string      `json:"createdAt"` // ISO-8601 형식 (Instant)
+	RoomId   int64       `json:"roomId"`
+	SenderId int64       `json:"senderId"`
+	Type     MessageType `json:"type"`
+	Content  string      `json:"content"`
+	FileUrl  *string     `json:"fileUrl"`
+	FileName *string     `json:"fileName"`
+	FileSize *int64      `json:"fileSize"`
 }
 
 // CreateConnectFrame STOMP CONNECT 프레임 생성
 func CreateConnectFrame(token string) string {
 	return fmt.Sprintf(
-		"CONNECT\nAuthorization: Bearer %s\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\n\n\u0000",
+		"CONNECT\n"+
+			"accept-version:1.2\n"+
+			"heart-beat:10000,10000\n"+
+			"Authorization:Bearer %s\n"+
+			"\n\x00",
 		token,
 	)
 }
 
-// CreateSubscribeFrame STOMP SUBSCRIBE 프레임 생성
-func CreateSubscribeFrame(workerID int, token string, roomID int64) string {
+func CreateSubscribeFrame(workerID int, token string, roomId int64) string {
+	subID := fmt.Sprintf("sub-%d", workerID)
+	dest := fmt.Sprintf("/topic/chat/room/%d", roomId)
+
 	return fmt.Sprintf(
-		"SUBSCRIBE\nid:sub-%d\nAuthorization: Bearer %s\ndestination:/topic/chat/room/%d\n\n\u0000",
-		workerID,
+		"SUBSCRIBE\n"+
+			"id:%s\n"+
+			"destination:%s\n"+
+			"ack:auto\n"+
+			"Authorization:Bearer %s\n"+
+			"\n\x00",
+		subID,
+		dest,
 		token,
-		roomID,
 	)
 }
 
 // CreateSendFrame STOMP SEND 프레임 생성
-// senderID: 실제 인증된 사용자의 memberId (config.MyMemberId 사용)
-func CreateSendFrame(token string, roomID int64, senderID int64, content string) string {
-	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
-	escapedContent := strconv.Quote(content)
+func CreateSendFrame(token string, roomId int64, senderId int64, content string) string {
+	msg := ChatMessage{
+		RoomId:   roomId,
+		SenderId: senderId,
+		Type:     MessageTypeText,
+		Content:  content,
+		FileUrl:  nil,
+		FileName: nil,
+		FileSize: nil,
+	}
+
+	bodyBytes, _ := json.Marshal(msg)
+	body := string(bodyBytes)
 
 	return fmt.Sprintf(
 		"SEND\n"+
-			"Authorization: Bearer %s\n"+
 			"destination:/publish/%d\n"+
-			"content-type:application/json\n\n"+
-			"{\"roomId\":%d,"+
-			"\"senderId\":%d,"+
-			"\"type\":\"TEXT\","+
-			"\"content\":%s,"+
-			"\"fileUrl\":null,"+
-			"\"fileName\":null,"+
-			"\"fileSize\":null,"+
-			"\"createdAt\":\"%s\"}\u0000",
+			"content-type:application/json\n"+
+			"Authorization:Bearer %s\n"+
+			"\n%s\x00",
+		roomId,
 		token,
-		roomID,
-		roomID,
-		senderID, // 실제 memberId 사용
-		escapedContent,
-		createdAt,
+		body,
 	)
 }
 

@@ -29,6 +29,62 @@ type ChatRoomSummary struct {
 	LastMessageAt      *time.Time   `json:"lastMessageAt"`
 }
 
+// CreatePrivateChatRoom creates a private (1:1) chat room
+func CreatePrivateChatRoom(cfg *config.Config, otherMemberId int64) (int64, error) {
+	if cfg == nil || cfg.HTTPClient == nil {
+		return 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
+	}
+	if cfg.Token == "" || cfg.ServerURL == "" {
+		return 0, fmt.Errorf("TOKEN 또는 SERVER_URL이 비어 있습니다")
+	}
+	if otherMemberId == 0 {
+		return 0, fmt.Errorf("otherMemberId가 설정되지 않았습니다")
+	}
+
+	// Query Parameter로 전달
+	endpoint := fmt.Sprintf("http://%s/v1/chat/rooms/private?otherMemberId=%d",
+		cfg.ServerURL, otherMemberId)
+
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		return 0, fmt.Errorf("개인 채팅방 생성 요청 생성 실패: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := cfg.HTTPClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("개인 채팅방 생성 API 호출 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("개인 채팅방 생성 응답 읽기 실패: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return 0, fmt.Errorf("개인 채팅방 생성 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
+	}
+
+	var apiResp auth.ApiResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return 0, fmt.Errorf("개인 채팅방 생성 응답 JSON 파싱 실패: %w", err)
+	}
+
+	if apiResp.Result != "SUCCESS" {
+		return 0, fmt.Errorf("개인 채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
+	}
+
+	var roomId int64
+	if err := json.Unmarshal(apiResp.Data, &roomId); err != nil {
+		return 0, fmt.Errorf("채팅방 ID 파싱 실패: %w", err)
+	}
+
+	return roomId, nil
+}
+
 // CreateGroupChatRoom creates a group chat room
 func CreateGroupChatRoom(cfg *config.Config, otherMemberIds []int64) (int64, error) {
 	if cfg == nil || cfg.HTTPClient == nil {
@@ -42,7 +98,7 @@ func CreateGroupChatRoom(cfg *config.Config, otherMemberIds []int64) (int64, err
 
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
-		return 0, fmt.Errorf("채팅방 생성 요청 생성 실패: %w", err)
+		return 0, fmt.Errorf("그룹 채팅방 생성 요청 생성 실패: %w", err)
 	}
 
 	// Query Parameter로 otherMemberIds 추가
@@ -57,26 +113,26 @@ func CreateGroupChatRoom(cfg *config.Config, otherMemberIds []int64) (int64, err
 
 	resp, err := cfg.HTTPClient.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("채팅방 생성 API 호출 실패: %w", err)
+		return 0, fmt.Errorf("그룹 채팅방 생성 API 호출 실패: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return 0, fmt.Errorf("채팅방 생성 응답 읽기 실패: %w", err)
+		return 0, fmt.Errorf("그룹 채팅방 생성 응답 읽기 실패: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return 0, fmt.Errorf("채팅방 생성 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
+		return 0, fmt.Errorf("그룹 채팅방 생성 실패 (상태 코드 %d): %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp auth.ApiResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return 0, fmt.Errorf("채팅방 생성 응답 JSON 파싱 실패: %w", err)
+		return 0, fmt.Errorf("그룹 채팅방 생성 응답 JSON 파싱 실패: %w", err)
 	}
 
 	if apiResp.Result != "SUCCESS" {
-		return 0, fmt.Errorf("채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
+		return 0, fmt.Errorf("그룹 채팅방 생성 API result != SUCCESS: %s, error=%v", apiResp.Result, apiResp.Error)
 	}
 
 	var roomId int64

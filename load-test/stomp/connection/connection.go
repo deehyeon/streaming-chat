@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"stomp-load-test/config"
 	"stomp-load-test/metrics"
 	"time"
@@ -19,11 +20,9 @@ func ConnectWebSocket(cfg *config.Config, workerID int) (*websocket.Conn, error)
 		ReadBufferSize:   1024,
 		WriteBufferSize:  1024,
 	}
-	
-	header := map[string][]string{
-		"Origin":        {"http://localhost:3000"},
-		"Authorization": {"Bearer " + cfg.Token},
-	}
+
+	header := http.Header{}
+	header.Add("Authorization", "Bearer "+cfg.Token)
 
 	wsURL := fmt.Sprintf("ws://%s/ws-stomp", cfg.ServerURL)
 	conn, _, err := dialer.Dial(wsURL, header)
@@ -124,7 +123,7 @@ func Subscribe(conn *websocket.Conn, cfg *config.Config, workerID int) error {
 		cfg.Token,
 		cfg.RoomID,
 	)
-	
+
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(subscribeFrame)); err != nil {
 		return fmt.Errorf("구독 실패: %w", err)
 	}
