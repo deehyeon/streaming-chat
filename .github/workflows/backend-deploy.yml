@@ -48,12 +48,18 @@ jobs:
 
       - name: Create application.yml files
         working-directory: ./munglog-backend
+        env:
+          APPLICATION_YML: ${{ secrets.APPLICATION_YML }}
+          APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
+          APPLICATION_ACTUATOR_YML: ${{ secrets.APPLICATION_ACTUATOR_YML }}
+          APPLICATION_SWAGGER_YML: ${{ secrets.APPLICATION_SWAGGER_YML }}
         run: |
           mkdir -p src/main/resources
-          echo "${{ secrets.APPLICATION_YML }}" > src/main/resources/application.yml
-          echo "${{ secrets.APPLICATION_PROD_YML }}" > src/main/resources/application-prod.yml
-          echo "${{ secrets.APPLICATION_ACTUATOR_YML }}" > src/main/resources/application-actuator.yml
-          echo "${{ secrets.APPLICATION_SWAGGER_YML }}" > src/main/resources/application-swagger.yml
+
+          printf '%s\n' "$APPLICATION_YML" > src/main/resources/application.yml
+          printf '%s\n' "$APPLICATION_PROD_YML" > src/main/resources/application-prod.yml
+          printf '%s\n' "$APPLICATION_ACTUATOR_YML" > src/main/resources/application-actuator.yml
+          printf '%s\n' "$APPLICATION_SWAGGER_YML" > src/main/resources/application-swagger.yml
 
       - name: Grant execute permission for gradlew
         working-directory: ./munglog-backend
