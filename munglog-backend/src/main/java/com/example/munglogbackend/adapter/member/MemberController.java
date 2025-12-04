@@ -1,18 +1,17 @@
 package com.example.munglogbackend.adapter.member;
 
 import com.example.munglogbackend.adapter.security.AuthDetails;
+import com.example.munglogbackend.application.member.provided.MemberFinder;
 import com.example.munglogbackend.application.member.provided.MemberSaver;
 import com.example.munglogbackend.domain.global.apiPayload.response.ApiResponse;
+import com.example.munglogbackend.domain.member.Member;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/v1/members")
@@ -21,6 +20,21 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "MEMBER", description = "회원 관련 API")
 public class MemberController {
     private final MemberSaver memberSaver;
+    private final MemberFinder memberFinder;
+
+    @Operation(
+            summary = "내 정보 조회",
+            description = """
+        ## 로그인한 사용자의 회원 정보를 조회합니다.
+        - Access Token 기반 인증 필요
+        - 자신의 회원 정보(이메일, 이름, 가입일 등)를 확인할 수 있습니다.
+    """
+    )
+    @GetMapping("/me")
+    public ApiResponse<Member> getMyInfo(@AuthenticationPrincipal AuthDetails authDetails) {
+        Member member = memberFinder.findActiveById(authDetails.getMemberId());
+        return ApiResponse.success(member);
+    }
 
     @Operation(
             summary = "회원 탈퇴(소프트 삭제)",
