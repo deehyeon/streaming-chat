@@ -67,6 +67,7 @@ public class SecurityConfig {
                                         "/actuator/prometheus",
                                         "/v1/auth/login"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.GET, "/v1/shelters/**").permitAll()
                                 .anyRequest().authenticated()
                 )
                 // OAuth2 로그인은 명시적 경로로만 시작
