@@ -51,4 +51,9 @@ public interface VolunteerApplicationRepository extends JpaRepository<VolunteerA
             VolunteerApplicationStatus status,
             Pageable pageable
     );
+
+    /**
+     * 상태별 봉사 신청 수 조회
+     */
+    long countByStatus(VolunteerApplicationStatus status);
 }

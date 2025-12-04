@@ -11,6 +11,7 @@ import com.example.munglogbackend.domain.member.dto.MemberSignUpRequest;
 import com.example.munglogbackend.domain.member.enumerate.MemberRole;
 import com.example.munglogbackend.domain.shelter.Shelter;
 import com.example.munglogbackend.domain.volunteer_application.VolunteerApplication;
+import com.example.munglogbackend.domain.volunteer_application.enumerate.VolunteerApplicationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +24,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * 테스트용 Mock 데이터를 로딩하는 Component
@@ -40,6 +43,7 @@ public class DevDataLoader implements CommandLineRunner {
     private final VolunteerApplicationRepository volunteerApplicationRepository;
     private final PasswordEncoder passwordEncoder;
     private final CsvMemberLoader csvMemberLoader;
+    private final CsvShelterLoader csvShelterLoader;
 
     @Override
     @Transactional
@@ -47,50 +51,74 @@ public class DevDataLoader implements CommandLineRunner {
         // 중복 실행 방지
         if (memberRepository.count() > 0) {
             log.info("✅ Data already exists. Skipping data loading.");
+            log.info("   - Members: {}", memberRepository.count());
+            log.info("   - Shelters: {}", shelterRepository.count());
+            log.info("   - Volunteer Applications: {}", volunteerApplicationRepository.count());
             return;
         }
 
         log.info("🔧 개발 환경 - 테스트 데이터 로딩 중...");
         log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        // 1. CSV에서 대량 회원 데이터 로드
-        log.info("📋 Step 1/4: CSV 회원 데이터 로딩...");
-        csvMemberLoader.loadMembersFromCsv();
-
-        // 2. 추가 특수 테스트 계정 생성
-        log.info("📋 Step 2/4: 특수 테스트 계정 생성...");
-        List<Member> specialMembers = createSpecialMembers();
-        log.info("✅ {} Special test accounts created", specialMembers.size());
-
-        // 3. 전체 회원 조회 (보호소 생성용)
-        List<Member> allMembers = memberRepository.findAll();
-
-        // 4. Shelter 생성 (보호소 소유자들로부터)
-        log.info("📋 Step 3/4: 보호소 생성...");
-        List<Shelter> shelters = createShelters(allMembers);
-        log.info("✅ {} Shelters created", shelters.size());
-
-        // 5. VolunteerApplication 생성 (일부 회원들로)
-        log.info("📋 Step 4/4: 봉사 신청 생성...");
         try {
-            List<VolunteerApplication> applications = createVolunteerApplications(allMembers, shelters);
-            log.info("✅ {} Volunteer Applications created", applications.size());
-        } catch (Exception e) {
-            log.error("❌ 봉사 신청 생성 중 오류 발생 - 나머지 데이터는 유지합니다.", e);
-        }
+            // 1. CSV에서 대량 회원 데이터 로드
+            log.info("");
+            log.info("📋 Step 1/5: CSV 회원 데이터 로딩...");
+            log.info("-----------------------------------------------");
+            csvMemberLoader.loadMembersFromCsv();
 
-        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        log.info("🎉 개발용 Mock 데이터 로딩 완료!");
-        log.info("");
-        log.info("📝 특수 테스트 계정 정보:");
-        log.info("   - 슈퍼관리자: superadmin@test.com / test1234");
-        log.info("   - 테스트봉사자: testvolunteer@test.com / test1234");
-        log.info("   - 테스트보호소: testshelter@test.com / test1234");
-        log.info("");
-        log.info("📊 CSV 회원 (10,000명):");
-        log.info("   - 이메일: user00001@test.com ~ user10000@test.com");
-        log.info("   - 비밀번호: test1234 (공통)");
-        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            // 2. 추가 특수 테스트 계정 생성
+            log.info("");
+            log.info("📋 Step 2/5: 특수 테스트 계정 생성...");
+            log.info("-----------------------------------------------");
+            List<Member> specialMembers = createSpecialMembers();
+            log.info("✅ {} Special test accounts created", specialMembers.size());
+
+            // 3. CSV에서 보호소 데이터 로드
+            log.info("");
+            log.info("📋 Step 3/5: CSV 보호소 데이터 로딩...");
+            log.info("-----------------------------------------------");
+            csvShelterLoader.loadSheltersFromCsv();
+
+            // 4. 전체 회원 및 보호소 조회
+            List<Member> allMembers = memberRepository.findAll();
+            List<Shelter> allShelters = shelterRepository.findAll();
+
+            // 5. VolunteerApplication 생성
+            log.info("");
+            log.info("📋 Step 4/5: 봉사 신청 생성...");
+            log.info("-----------------------------------------------");
+            try {
+                List<VolunteerApplication> applications = createVolunteerApplications(allMembers, allShelters);
+                log.info("✅ {} Volunteer Applications created", applications.size());
+            } catch (Exception e) {
+                log.error("❌ 봉사 신청 생성 중 오류 발생 - 나머지 데이터는 유지합니다.", e);
+            }
+
+            // 6. 최종 통계
+            log.info("");
+            log.info("📋 Step 5/5: 최종 통계");
+            log.info("-----------------------------------------------");
+            logFinalStatistics();
+
+            log.info("");
+            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            log.info("🎉 개발용 Mock 데이터 로딩 완료!");
+            log.info("");
+            log.info("📝 특수 테스트 계정 정보:");
+            log.info("   - 슈퍼관리자: superadmin@test.com / test1234");
+            log.info("   - 테스트봉사자: testvolunteer@test.com / test1234");
+            log.info("   - 테스트보호소: testshelter@test.com / test1234");
+            log.info("");
+            log.info("📊 CSV 회원 (10,000명):");
+            log.info("   - 이메일: user00001@test.com ~ user10000@test.com");
+            log.info("   - 비밀번호: test1234 (공통)");
+            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        } catch (Exception e) {
+            log.error("❌ 데이터 로드 중 오류 발생", e);
+            throw e;
+        }
     }
 
     /**
@@ -131,117 +159,136 @@ public class DevDataLoader implements CommandLineRunner {
     }
 
     /**
-     * 테스트용 Shelter 데이터 생성
-     * - SHELTER_OWNER 역할을 가진 회원들 중 일부를 선택하여 보호소 생성
+     * 봉사 신청 데이터 생성
+     * - 랜덤하게 봉사자들이 보호소에 봉사 신청
      */
-    private List<Shelter> createShelters(List<Member> allMembers) {
-        List<Shelter> shelters = new ArrayList<>();
+    private List<VolunteerApplication> createVolunteerApplications(
+            List<Member> allMembers,
+            List<Shelter> allShelters) {
 
-        // SHELTER_OWNER 회원만 필터링
-        List<Member> shelterOwners = allMembers.stream()
-                .filter(m -> m.getRole() == MemberRole.SHELTER_OWNER)
-                .limit(100) // 100개의 보호소 생성
-                .toList();
-
-        if (shelterOwners.isEmpty()) {
-            log.warn("⚠️ SHELTER_OWNER 역할을 가진 회원이 없습니다.");
-            return shelters;
-        }
-
-        // 보호소 템플릿
-        String[][] shelterTemplates = {
-                {"사랑 동물보호소", "02-1234-5678", "서울특별시 강남구 테헤란로 123", "06234"},
-                {"희망 동물의집", "031-8765-4321", "경기도 성남시 분당구 판교역로 231", "13487"},
-                {"행복 동물보호센터", "032-9876-5432", "인천광역시 연수구 송도과학로 32", "21990"},
-                {"평화 보호소", "051-1111-2222", "부산광역시 해운대구 센텀중앙로 97", "48094"},
-                {"나눔 동물센터", "053-3333-4444", "대구광역시 수성구 달구벌대로 2450", "42061"},
-        };
-
-        for (int i = 0; i < shelterOwners.size(); i++) {
-            Member owner = shelterOwners.get(i);
-            String[] template = shelterTemplates[i % shelterTemplates.length];
-
-            Shelter shelter = Shelter.createShelter(
-                    owner,
-                    template[0] + " #" + (i + 1),
-                    template[1],
-                    Email.from("shelter" + (i + 1) + "@test.com"),
-                    List.of("https://shelter" + (i + 1) + ".com"),
-                    "유기동물 보호 및 입양을 돕는 보호소입니다.",
-                    "월-금 09:00-18:00",
-                    "봉사자를 모집합니다!",
-                    Address.create(template[3], template[2], (i + 1) + "호")
-            );
-
-            // 대표 이미지 추가
-            shelter.addShelterImage("https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800");
-            shelter.addShelterDogsImage("https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600");
-
-            shelters.add(shelter);
-        }
-
-        return shelterRepository.saveAll(shelters);
-    }
-
-    /**
-     * 테스트용 VolunteerApplication 데이터 생성
-     * - VOLUNTEER 역할 회원들 중 일부가 보호소에 봉사 신청
-     */
-    private List<VolunteerApplication> createVolunteerApplications(List<Member> allMembers, List<Shelter> shelters) {
-        if (shelters.isEmpty()) {
-            log.warn("⚠️ 생성된 보호소가 없어 봉사 신청을 생성할 수 없습니다.");
-            return List.of();
+        if (allShelters.isEmpty()) {
+            log.warn("⚠️ 보호소가 없어 봉사 신청을 생성할 수 없습니다.");
+            return new ArrayList<>();
         }
 
         List<VolunteerApplication> applications = new ArrayList<>();
-        LocalDate today = LocalDate.now();
+        Random random = new Random();
 
-        // VOLUNTEER 역할 회원만 필터링 (200명 사용)
+        // 봉사자만 필터링
         List<Member> volunteers = allMembers.stream()
                 .filter(m -> m.getRole() == MemberRole.VOLUNTEER)
-                .limit(200)
-                .toList();
+                .collect(Collectors.toList());
 
         if (volunteers.isEmpty()) {
-            log.warn("⚠️ VOLUNTEER 역할을 가진 회원이 없습니다.");
-            return applications;
+            log.warn("⚠️ 봉사자가 없어 봉사 신청을 생성할 수 없습니다.");
+            return new ArrayList<>();
         }
 
-        // 각 봉사자가 1-3개의 보호소에 신청
-        for (int i = 0; i < volunteers.size(); i++) {
-            Member volunteer = volunteers.get(i);
-            int applicationCount = (i % 3) + 1; // 1~3개
+        // 봉사자의 약 30%가 1~3개의 신청을 함
+        int applicationCount = Math.min(volunteers.size() * 30 / 100, 2000); // 최대 2000개
 
-            for (int j = 0; j < applicationCount; j++) {
-                Shelter shelter = shelters.get((i + j) % shelters.size());
+        log.info("🔄 {}개의 봉사 신청 생성 중...", applicationCount);
 
-                LocalDate date = today.plusDays(5 + (i % 15));
+        try {
+            for (int i = 0; i < applicationCount; i++) {
+                // 랜덤 봉사자 선택
+                Member volunteer = volunteers.get(random.nextInt(volunteers.size()));
 
-                // ✅ startTime 먼저 정하고, endTime은 항상 그 이후로
-                LocalTime startTime = LocalTime.of(9 + (i % 3), 0);        // 9,10,11시
-                LocalTime endTime = startTime.plusHours(3);                // 12,13,14시
+                // 랜덤 보호소 선택
+                Shelter shelter = allShelters.get(random.nextInt(allShelters.size()));
 
-                VolunteerApplication app = VolunteerApplication.createApplication(
+                // 랜덤 날짜 (오늘부터 60일 이내)
+                LocalDate volunteerDate = LocalDate.now().plusDays(random.nextInt(60));
+
+                // 랜덤 시간
+                LocalTime startTime = LocalTime.of(9 + random.nextInt(5), 0); // 09:00 ~ 13:00
+                LocalTime endTime = startTime.plusHours(2 + random.nextInt(4)); // 2~5시간 봉사
+
+                // 랜덤 상태
+                VolunteerApplicationStatus status = VolunteerApplicationStatus.values()[
+                        random.nextInt(VolunteerApplicationStatus.values().length)
+                        ];
+
+                // 설명 (50% 확률로)
+                String description = random.nextBoolean() ?
+                        "봉사 활동에 참여하고 싶습니다. 강아지를 사랑합니다!" : null;
+                VolunteerApplication application = VolunteerApplication.createApplication(
                         volunteer,
                         shelter,
-                        date,
+                        volunteerDate,
                         startTime,
                         endTime,
-                        "봉사 신청합니다. 열심히 하겠습니다!"
+                        description
                 );
 
-                // 상태 다양화 (70% PENDING, 20% APPROVED, 10% REJECTED)
-                int statusRandom = i % 10;
-                if (statusRandom < 2) {
-                    app.approve();
-                } else if (statusRandom == 9) {
-                    app.reject();
+                applications.add(application);
+
+                // 배치 저장 (500개씩)
+                if (applications.size() >= 500) {
+                    volunteerApplicationRepository.saveAll(applications);
+                    applications.clear();
+                    log.info("   ✓ {}개 저장...", i + 1);
                 }
-
-                applications.add(app);
             }
-        }
 
-        return volunteerApplicationRepository.saveAll(applications);
+            // 남은 데이터 저장
+            if (!applications.isEmpty()) {
+                volunteerApplicationRepository.saveAll(applications);
+            }
+
+            long totalApplications = volunteerApplicationRepository.count();
+            log.info("✅ 총 {}개의 봉사 신청 생성 완료", totalApplications);
+
+            return applications;
+
+        } catch (Exception e) {
+            log.error("❌ 봉사 신청 생성 중 오류", e);
+            throw e;
+        }
+    }
+
+    /**
+     * 최종 통계 로깅
+     */
+    private void logFinalStatistics() {
+        long memberCount = memberRepository.count();
+        long shelterCount = shelterRepository.count();
+        long applicationCount = volunteerApplicationRepository.count();
+
+        long volunteerCount = memberRepository.countByRole(MemberRole.VOLUNTEER);
+        long shelterOwnerCount = memberRepository.countByRole(MemberRole.SHELTER_OWNER);
+        long adminCount = memberRepository.countByRole(MemberRole.ADMIN);
+
+        log.info("📊 최종 통계:");
+        log.info("   [회원]");
+        log.info("   - 전체: {}명", memberCount);
+        log.info("   - 봉사자: {}명 ({}%)",
+                volunteerCount, String.format("%.1f", volunteerCount * 100.0 / memberCount));
+        log.info("   - 보호소 소유자: {}명 ({}%)",
+                shelterOwnerCount, String.format("%.1f", shelterOwnerCount * 100.0 / memberCount));
+        log.info("   - 관리자: {}명 ({}%)",
+                adminCount, String.format("%.1f", adminCount * 100.0 / memberCount));
+        log.info("");
+        log.info("   [보호소]");
+        log.info("   - 전체: {}개", shelterCount);
+        log.info("");
+        log.info("   [봉사 신청]");
+        log.info("   - 전체: {}개", applicationCount);
+
+        if (applicationCount > 0) {
+            long pendingCount = volunteerApplicationRepository.countByStatus(VolunteerApplicationStatus.PENDING);
+            long approvedCount = volunteerApplicationRepository.countByStatus(VolunteerApplicationStatus.APPROVED);
+            long rejectedCount = volunteerApplicationRepository.countByStatus(VolunteerApplicationStatus.REJECTED);
+            long cancelledCount = volunteerApplicationRepository.countByStatus(VolunteerApplicationStatus.CANCELLED);
+
+            log.info("   - 대기중: {}개 ({}%)",
+                    pendingCount, String.format("%.1f", pendingCount * 100.0 / applicationCount));
+            log.info("   - 승인됨: {}개 ({}%)",
+                    approvedCount, String.format("%.1f", approvedCount * 100.0 / applicationCount));
+            log.info("   - 거절됨: {}개 ({}%)",
+                    rejectedCount, String.format("%.1f", rejectedCount * 100.0 / applicationCount));
+            log.info("   - 취소됨: {}개 ({}%)",
+                    cancelledCount, String.format("%.1f", cancelledCount * 100.0 / applicationCount));
+        }
     }
 }
