@@ -8,6 +8,9 @@ public interface ChatParticipantFinder {
     // 채팅방 참여자 목록
     List<ChatParticipant> findChatParticipants(Long roomId);
 
+    // 채팅방 참여자 ID 목록(본인 제외)
+    List<Long> findChatParticipantIdsExcludingMe(Long roomId, Long memberId);
+
     // 내가 속한 채팅방 목록
     List<ChatRoomSummary> findRoomsByMember(Long memberId);
 

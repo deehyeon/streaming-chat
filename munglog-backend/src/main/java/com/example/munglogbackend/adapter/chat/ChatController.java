@@ -28,6 +28,7 @@ public class ChatController {
     private final ChatSaver chatSaver;
     private final ChatRoomFinder chatRoomFinder;
     private final ChatMessageFinder chatMessageFinder;
+    private final ChatParticipantFinder chatParticipantFinder;
 
     // 개인 채팅방 개설 또는 기존 roomId return
     @Operation(summary = "1대1 채팅방 개설", description = """
@@ -53,6 +54,16 @@ public class ChatController {
             @RequestParam @Size(min = 0, max = 50, message = "그룹 채팅은 최대 50명까지 가능합니다") List<Long> otherMemberIds
     ) {
         return ApiResponse.success(chatSaver.createGroupChatRoom(authDetails.getMemberId(), otherMemberIds));
+    }
+
+    @GetMapping("/rooms/{roomId}/participants")
+    public ApiResponse<List<Long>> getChatRoomParticipants(
+            @AuthenticationPrincipal AuthDetails authDetails,
+            @PathVariable Long roomId
+    ) {
+        return ApiResponse.success(
+                chatParticipantFinder.findChatParticipantIdsExcludingMe(roomId, authDetails.getMemberId())
+        );
     }
 
     // 그룹 채팅방 개설

@@ -46,6 +46,14 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
     }
 
     @Override
+    public List<Long> findChatParticipantIdsExcludingMe(Long roomId, Long memberId) {
+        return chatParticipantRepository.findAllByChatRoom_IdAndMember_IdNot(roomId, memberId)
+                .stream()
+                .map(cp -> cp.getMember().getId())
+                .toList();
+    }
+
+    @Override
     public List<ChatRoomSummary> findRoomsByMember(Long memberId) {
         List<ChatParticipant> chatParticipants = chatParticipantRepository.findAllByMember_Id(memberId);
         List<ChatRoom> chatRooms = chatParticipants.stream()
