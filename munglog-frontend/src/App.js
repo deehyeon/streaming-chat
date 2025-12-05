@@ -19,6 +19,9 @@ import ShelterMyPage from './pages/ShelterMyPage';
 import MyPage from './pages/MyPage';
 import Chat from './pages/Chat';
 import ShelterIsland from './pages/ShelterIsland';
+import VolunteerApplicationCreate from './pages/VolunteerApplicationCreate';
+import MyVolunteerApplications from './pages/MyVolunteerApplications';
+import VolunteerApplicationDetail from './pages/VolunteerApplicationDetail';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -52,6 +55,17 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/signup/volunteer" element={<VolunteerSignup />} />
           <Route path="/signup/shelter" element={<ShelterSignup />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/shelters/:shelterId" element={<ShelterDetail />} />
+          
+          {/* 봉사 신청 */}
+          <Route path="/volunteer-application/create" element={<VolunteerApplicationCreate />} />
+          
+          {/* 내 봉사 신청 목록 */}
+          <Route path="/volunteer-applications/me" element={<MyVolunteerApplications />} />
+          
+          {/* 봉사 신청 상세 (optional) */}
+          <Route path="/volunteer-applications/:applicationId" element={<VolunteerApplicationDetail />} />
           
           {/* Protected Routes */}
           <Route

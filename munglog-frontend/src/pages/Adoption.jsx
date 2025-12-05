@@ -1,25 +1,37 @@
 import React, { useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import dogCharacter from '../components/logo/돈이 캐릭터 5.svg';
 
-export default function Adoption({ 
-  selectedRegion, 
-  setIsLocationModalOpen,
-  likedItems,
-  toggleLike,
-  setCurrentPage,
-  setSelectedDogId
-}) {
+export default function Adoption() {
+  const navigate = useNavigate();
+  const { 
+    selectedRegion, 
+    setIsLocationModalOpen 
+  } = useOutletContext();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [ageFilter, setAgeFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
+  const [likedItems, setLikedItems] = useState(new Set());
+
+  const toggleLike = (dogId) => {
+    setLikedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dogId)) {
+        newSet.delete(dogId);
+      } else {
+        newSet.add(dogId);
+      }
+      return newSet;
+    });
+  };
 
   const handleDogClick = (dogId) => {
-    setSelectedDogId(dogId);
-    setCurrentPage('adoption-detail');
+    navigate(`/adoption/${dogId}`);
   };
 
   const handleCreatePost = () => {
-    setCurrentPage('adoption-post-create');
+    navigate('/adoption/create');
   };
 
   const dogs = [

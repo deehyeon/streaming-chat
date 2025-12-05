@@ -45,7 +45,7 @@ const Footer = () => {
             (주)멍로그 | 대표이사 이름 | 서울 지구 우주일로 265호, 2층
           </p>
           <p className="text-sm text-gray-400 mt-2">
-            ©2024 MongLog. All rights reserved.
+            ©2024 MungLog. All rights reserved.
           </p>
         </div>
       </div>

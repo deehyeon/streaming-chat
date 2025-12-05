@@ -14,13 +14,14 @@
     "react-router-dom": "^7.10.0",
     "react-scripts": "5.0.1",
     "sockjs-client": "^1.6.1",
-    "three": "^0.159.0"
+    "three": "^0.159.0",
+    "webstomp-client": "^1.2.6"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "start": "GENERATE_SOURCEMAP=false react-scripts start",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build"
   },
   "eslintConfig": {
     "extends": [

@@ -1,113 +1,106 @@
+// src/pages/Login.jsx
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { login } from '../api/authApi';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://158.180.75.249:8080';
-
-export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function Login() {
+  const navigate = useNavigate();
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
     setError('');
-    setLoading(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.email || !formData.password) {
+      setError('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+      setLoading(true);
+      setError('');
 
-      const data = await response.json();
+      const response = await login(formData);
 
-      if (data.result === 'SUCCESS' && data.data) {
-        const { tokenInfo, memberInfo } = data.data;
-
-        // 토큰 저장 (localStorage)
-        localStorage.setItem('accessToken', tokenInfo.accessToken);
-        localStorage.setItem('refreshToken', tokenInfo.refreshToken);
-        localStorage.setItem('memberId', memberInfo.memberId);
-        localStorage.setItem('memberRole', memberInfo.role);
-
-        // 상태 업데이트
-        setIsLoggedIn(true);
-        
-        // 역할에 따라 userType 설정
-        if (memberInfo.role === 'VOLUNTEER') {
-          setUserType('volunteer');
-        } else if (memberInfo.role === 'SHELTER') {
-          setUserType('shelter');
-        } else {
-          setUserType('volunteer'); // 기본값
-        }
-
-        // 홈으로 이동
-        setCurrentPage('home');
+      if (response.result === 'SUCCESS') {
+        const { memberInfo } = response.data;
+        alert(`${memberInfo.name}님, 환영합니다!`);
+        navigate('/home');
       } else {
-        // 에러 처리
-        setError(data.error?.message || '로그인에 실패했습니다.');
+        throw new Error(response.message || '로그인에 실패했습니다.');
       }
     } catch (err) {
-      console.error('로그인 오류:', err);
-      setError('서버와의 통신에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      console.error('로그인 실패:', err);
+      setError(err.message || '로그인에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    // TODO: SNS 로그인 로직 구현
-    alert(`${provider} 로그인 기능은 준비 중입니다.`);
-  };
-
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12">
-      <div className="w-full max-w-md">
-        {/* 로고 및 제목 */}
+    <div className="min-h-[calc(100vh-80px)] flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full">
+        {/* 로고 */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🐶</div>
-          <h1 className="text-3xl font-bold text-gray-800">멍로그</h1>
+          <div className="text-6xl mb-4">🐕</div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">멍로그</h1>
+          <p className="text-gray-600">유기동물 보호소 봉사 플랫폼</p>
         </div>
 
         {/* 로그인 폼 */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <form onSubmit={handleLogin} className="space-y-4">
-            {/* 에러 메시지 */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+        <div className="bg-white rounded-2xl shadow-md p-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">로그인</h2>
 
-            {/* 이메일 입력 */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 이메일 */}
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                이메일
+              </label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="이메일"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
-                required
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="example@email.com"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 disabled={loading}
               />
             </div>
 
-            {/* 비밀번호 입력 */}
+            {/* 비밀번호 */}
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                비밀번호
+              </label>
               <input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="비밀번호"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
-                required
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="비밀번호를 입력하세요"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 disabled={loading}
               />
             </div>
@@ -116,97 +109,36 @@ export default function Login({ setCurrentPage, setIsLoggedIn, setUserType }) {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 bg-yellow-400 text-gray-800 rounded-lg font-bold transition-colors shadow-md ${
-                loading 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:bg-yellow-500'
+              className={`w-full py-3 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600 transition-colors ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
-          {/* 링크들 */}
-          <div className="flex items-center justify-center gap-4 mt-6 text-sm text-gray-600">
-            <button
-              onClick={() => alert('비밀번호 재설정 기능은 준비 중입니다.')}
-              className="hover:text-gray-800 transition-colors"
-            >
-              비밀번호 재설정
-            </button>
-            <span className="text-gray-400">|</span>
-            <button
-              onClick={() => setCurrentPage('signup')}
-              className="hover:text-gray-800 transition-colors"
-            >
-              회원가입
-            </button>
-          </div>
-
-          {/* 구분선 */}
-          <div className="my-8">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500">
-                  SNS계정으로 간편 로그인/회원가입
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* SNS 로그인 버튼들 */}
-          <div className="flex justify-center gap-4">
-            {/* Facebook */}
-            <button
-              onClick={() => handleSocialLogin('Facebook')}
-              className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
-              aria-label="Facebook 로그인"
-              disabled={loading}
-            >
-              f
-            </button>
-
-            {/* Kakao */}
-            <button
-              onClick={() => handleSocialLogin('Kakao')}
-              className="w-14 h-14 rounded-full bg-[#FEE500] text-gray-800 flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
-              aria-label="Kakao 로그인"
-              disabled={loading}
-            >
-              K
-            </button>
-
-            {/* Naver */}
-            <button
-              onClick={() => handleSocialLogin('Naver')}
-              className="w-14 h-14 rounded-full bg-[#03C75A] text-white flex items-center justify-center text-xl font-bold hover:scale-110 transition-transform shadow-md"
-              aria-label="Naver 로그인"
-              disabled={loading}
-            >
-              N
-            </button>
-          </div>
-
           {/* 추가 링크 */}
-          <div className="mt-8 text-center space-y-3">
-            <p className="text-sm text-gray-500">
-              로그인에 문제가 있으신가요?
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-sm text-gray-600">
+              계정이 없으신가요?{' '}
+              <Link to="/signup" className="text-orange-600 hover:text-orange-700 font-medium">
+                회원가입
+              </Link>
             </p>
-            <button
-              onClick={() => alert('비회원 주문 조회 기능은 준비 중입니다.')}
-              className="text-sm text-gray-600 hover:text-gray-800 underline transition-colors"
-            >
-              비회원 주문 조회하기
-            </button>
+            <Link to="/forgot-password" className="block text-sm text-gray-500 hover:text-gray-700">
+              비밀번호를 잊으셨나요?
+            </Link>
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          © MongLog. All Rights Reserved
+        {/* 테스트 계정 안내 */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-gray-700 font-medium mb-2">💡 테스트 계정</p>
+          <div className="space-y-1 text-xs text-gray-600">
+            <p>• 봉사자: testvolunteer@test.com / test1234</p>
+            <p>• 보호소: testshelter@test.com / test1234</p>
+            <p>• CSV 회원: user00001@test.com ~ user10000@test.com / test1234</p>
+          </div>
         </div>
       </div>
     </div>

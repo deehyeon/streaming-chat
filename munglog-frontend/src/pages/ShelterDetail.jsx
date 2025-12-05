@@ -1,30 +1,106 @@
+// src/pages/ShelterDetail.jsx
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getShelterDetail } from '../api/shelterApi';
+import { createPrivateChatRoom } from '../api/chatApi';
 
-export default function ShelterDetail({ shelterId, setCurrentPage }) {
+export default function ShelterDetail() {
+  const { shelterId } = useParams();
+  const navigate = useNavigate();
+  
   const [activeTab, setActiveTab] = useState('info');
   const [shelterPhotoPage, setShelterPhotoPage] = useState(1);
   const [dogPhotoPage, setDogPhotoPage] = useState(1);
   const [shelterData, setShelterData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [creatingChat, setCreatingChat] = useState(false);
 
   useEffect(() => {
-    fetchShelterDetail();
+    if (shelterId) {
+      fetchShelterDetail();
+    }
   }, [shelterId]);
 
   const fetchShelterDetail = async () => {
     try {
       setLoading(true);
       const response = await getShelterDetail(shelterId);
-      setShelterData(response.data);
-      setError(null);
+      
+      if (response.result === 'SUCCESS') {
+        setShelterData(response.data);
+        setError(null);
+      } else {
+        setError('보호소 정보를 불러오는데 실패했습니다.');
+      }
     } catch (err) {
       setError('보호소 정보를 불러오는데 실패했습니다.');
       console.error('Error fetching shelter detail:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🔥 1:1 채팅방 생성 및 이동
+  const handleCreateChat = async () => {
+    try {
+      // 로그인 확인
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        navigate('/login');
+        return;
+      }
+
+      // 보호소 소유자 memberId 확인
+      if (!shelterData.shelterOwnerId) {
+        alert('보호소 담당자 정보를 찾을 수 없습니다.');
+        return;
+      }
+
+      setCreatingChat(true);
+      console.log('🔄 채팅방 생성 중...', { shelterOwnerId: shelterData.shelterOwnerId });
+
+      // 1:1 채팅방 생성 또는 기존 roomId 가져오기
+      const response = await createPrivateChatRoom(shelterData.shelterOwnerId);
+      
+      console.log('✅ 채팅방 생성 응답:', response);
+
+      if (response.result === 'SUCCESS') {
+        const roomId = response.data;
+        console.log('📬 채팅방 ID:', roomId);
+        
+        // 채팅 페이지로 이동하면서 roomId 전달
+        navigate('/chat', { state: { roomId, autoOpen: true } });
+      } else {
+        throw new Error('채팅방 생성에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('❌ 채팅방 생성 실패:', err);
+      alert(err.message || '채팅방 생성에 실패했습니다.');
+    } finally {
+      setCreatingChat(false);
+    }
+  };
+
+  // 🔥 봉사 신청하기 페이지로 이동
+  const handleVolunteerApplication = () => {
+    // 로그인 확인
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    // 봉사 신청 페이지로 이동 (shelterId와 shelterName 전달)
+    navigate(`/volunteer-application/create`, { 
+      state: { 
+        shelterId: shelterData.shelterId,
+        shelterName: shelterData.name,
+        shelterAddress: shelterData.address
+      } 
+    });
   };
 
   const itemsPerPage = 8;
@@ -60,7 +136,7 @@ export default function ShelterDetail({ shelterId, setCurrentPage }) {
     return (
       <div className="max-w-6xl mx-auto">
         <button
-          onClick={() => setCurrentPage('shelters')}
+          onClick={() => navigate('/shelters')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +162,7 @@ export default function ShelterDetail({ shelterId, setCurrentPage }) {
     <div className="max-w-6xl mx-auto space-y-8">
       {/* 뒤로 가기 버튼 */}
       <button
-        onClick={() => setCurrentPage('shelters')}
+        onClick={() => navigate('/shelters')}
         className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,7 +200,9 @@ export default function ShelterDetail({ shelterId, setCurrentPage }) {
               {shelterData.email && (
                 <div className="flex items-center">
                   <span className="w-32 text-gray-600 font-medium">이메일</span>
-                  <span className="text-gray-800">{shelterData.email.email}</span>
+                  <span className="text-gray-800">
+                    {typeof shelterData.email === 'object' ? shelterData.email.email : shelterData.email}
+                  </span>
                 </div>
               )}
               {shelterData.urls && shelterData.urls.length > 0 && (
@@ -153,10 +231,19 @@ export default function ShelterDetail({ shelterId, setCurrentPage }) {
               </svg>
               찜
             </button>
-            <button className="px-3 py-1 border border-gray-300 rounded-lg text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-              1:1 채팅
+            <button 
+              onClick={handleCreateChat}
+              disabled={creatingChat}
+              className={`px-3 py-1 border border-gray-300 rounded-lg text-xs text-gray-700 hover:bg-gray-50 whitespace-nowrap ${
+                creatingChat ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {creatingChat ? '생성 중...' : '1:1 채팅'}
             </button>
-            <button className="px-4 py-1 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 whitespace-nowrap">
+            <button 
+              onClick={handleVolunteerApplication}
+              className="px-4 py-1 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 whitespace-nowrap"
+            >
               봉사 신청하기
             </button>
           </div>
@@ -182,7 +269,6 @@ export default function ShelterDetail({ shelterId, setCurrentPage }) {
           </div>
         </div>
       </div>
-
       {/* 탭 */}
       <div className="flex gap-8 border-b border-gray-200">
         <button

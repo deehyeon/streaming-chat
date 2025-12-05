@@ -1,3 +1,4 @@
+// src/components/common/Layout.jsx
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
@@ -16,18 +17,46 @@ export default function Layout() {
     localStorage.getItem('userType') || null
   );
 
+  // 디버깅 로그 추가
+  console.log('🎨 Layout render - isLoggedIn:', isLoggedIn, 'userType:', userType);
+
   useEffect(() => {
-    // Listen to storage changes
+    // 다른 탭에서의 변경 감지 (기존 코드)
     const handleStorageChange = () => {
+      console.log('📦 Storage event fired');
       setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true');
       setUserType(localStorage.getItem('userType') || null);
     };
 
+    // 같은 탭에서의 변경 감지 (새로 추가)
+    const handleAuthChange = () => {
+      console.log('🔄 AuthChange event fired');
+      const newIsLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      const newUserType = localStorage.getItem('userType') || null;
+      
+      console.log('📥 Updating state:', {
+        isLoggedIn: newIsLoggedIn,
+        userType: newUserType
+      });
+      
+      setIsLoggedIn(newIsLoggedIn);
+      setUserType(newUserType);
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('authChange', handleAuthChange); // 커스텀 이벤트
+
+    console.log('👂 Event listeners registered');
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChange', handleAuthChange);
+      console.log('🔇 Event listeners removed');
+    };
   }, []);
 
   const handleLogout = () => {
+    console.log('🚪 Logging out');
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userType');
     localStorage.removeItem('accessToken');
@@ -40,7 +69,6 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        currentPage={location.pathname}
         isLoggedIn={isLoggedIn}
         userType={userType}
         onLogout={handleLogout}

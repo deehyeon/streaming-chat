@@ -1,5 +1,6 @@
 import React, { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { useNavigate } from 'react-router-dom';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 
 import Dog from '../components/Dog';
@@ -66,15 +67,15 @@ function Scene({ onDogClick, onChatClick, onIsabelleClick, showIsabelleModal }) 
 }
 
 // 메인 앱 컴포넌트
-export default function ShelterIsland({ setCurrentPage }) {
+export default function ShelterIsland() {
   const [selectedDog, setSelectedDog] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showIsabelleModal, setShowIsabelleModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate(); 
 
-  // Dog 클릭 핸들러 - 페이지 이동
   const handleDogClick = (page) => {
-    setCurrentPage(page);
+    navigate(`/${page}`);
   };
 
   const handleVolunteer = () => {
@@ -82,7 +83,6 @@ export default function ShelterIsland({ setCurrentPage }) {
     setShowModal(false);
   };
 
-  // 이사벨 클릭 핸들러
   const handleIsabelleClick = () => {
     setShowIsabelleModal(true);
   };
@@ -90,7 +90,7 @@ export default function ShelterIsland({ setCurrentPage }) {
   // 멍로그 마을로 이동
   const handleGoToVillage = () => {
     setShowIsabelleModal(false);
-    setCurrentPage('home');
+    navigate('/home');  // navigate만 호출하면 됨
   };
 
   return (
@@ -109,7 +109,7 @@ export default function ShelterIsland({ setCurrentPage }) {
         <Suspense fallback={null}>
           <Scene 
               onDogClick={handleDogClick}
-              onChatClick={() => setCurrentPage('chat')}
+              onChatClick={() => navigate('/chat')}
               onIsabelleClick={handleIsabelleClick}
               showIsabelleModal={showIsabelleModal}
            />
