@@ -44,6 +44,7 @@ public class DevDataLoader implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final CsvMemberLoader csvMemberLoader;
     private final CsvShelterLoader csvShelterLoader;
+    private final ChatRoomLoader chatRoomLoader;
 
     @Override
     @Transactional
@@ -94,6 +95,9 @@ public class DevDataLoader implements CommandLineRunner {
             } catch (Exception e) {
                 log.error("❌ 봉사 신청 생성 중 오류 발생 - 나머지 데이터는 유지합니다.", e);
             }
+
+            Long chatRoomId = chatRoomLoader.createLoadTestGroupRoom();
+            log.info("✅ Group chat room created with ID: {}", chatRoomId);
 
             // 6. 최종 통계
             log.info("");
