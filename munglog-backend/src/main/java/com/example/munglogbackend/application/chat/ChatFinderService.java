@@ -99,13 +99,28 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
      * **/
     @Override
     public List<ChatRoomSummary> findGroupChatRooms(Long memberId) {
+        List<ChatParticipant> chatParticipants = chatParticipantRepository.findAllByMember_Id(memberId);
         memberFinder.findActiveById(memberId);
         List<ChatRoom> groupChatRooms = chatRoomRepository.findAllByChatRoomType(ChatRoomType.GROUP);
 
+        List<Long> roomIds = groupChatRooms.stream().map(ChatRoom::getId).toList();
+
+        // 방별 최신 seq
+        Map<Long, Long> latestSeqMap = chatMessageRepository.findMaxSeqForRoomIds(roomIds);
+
+        // 방별 unreadCount 계산
+        Map<Long, Long> unreadMap = new HashMap<>();
+        for (ChatParticipant cp : chatParticipants) {
+            Long roomId = cp.getChatRoom().getId();
+            long unread = getUnReadCount(cp, latestSeqMap, roomId);
+            unreadMap.put(roomId, unread);
+        }
+
         return groupChatRooms.stream()
+                .sorted(Comparator.comparing(ChatRoom::getLastMessageAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .map(room -> {
-                    long latestMessageSeq = chatMessageRepository.findLatestMessageSeq(room.getId());
-                    return ChatRoomSummary.of(room, latestMessageSeq, room.getChatRoomType(), room.getLastMessagePreview(),  room.getLastMessageAt());
+                    long unread = unreadMap.getOrDefault(room.getId(), 0L);
+                    return ChatRoomSummary.of(room, unread,room.getChatRoomType(), room.getLastMessagePreview(), room.getLastMessageAt());
                 }).toList();
     }
 

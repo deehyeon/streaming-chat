@@ -96,7 +96,7 @@ public class DevDataLoader implements CommandLineRunner {
             }
 
             List<Long> chatRoomIds = chatRoomLoader.createLoadTestGroupRooms();
-            log.info("✅ Group chat room created with ID: {}", chatRoomIds);
+            log.info("✅ {} Group chat rooms created with IDs: {}", chatRoomIds.size(), chatRoomIds);
 
             // 6. 최종 통계
             log.info("");

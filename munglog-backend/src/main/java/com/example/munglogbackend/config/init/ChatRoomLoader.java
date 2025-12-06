@@ -5,12 +5,14 @@ import com.example.munglogbackend.application.member.required.MemberRepository;
 import com.example.munglogbackend.domain.chat.entity.ChatRoom;
 import com.example.munglogbackend.domain.member.Member;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatRoomLoader {
@@ -60,11 +62,11 @@ public class ChatRoomLoader {
 
             // 로그 (선택사항)
             if ((roomIndex + 1) % 10 == 0) {
-                System.out.println("📊 진행: " + (roomIndex + 1) + "/100 방 생성 완료");
+                log.info("📊 진행: {}/100 방 생성 완료", roomIndex + 1);
             }
         }
 
-        System.out.println("✅ 총 " + createdRoomIds.size() + "개 채팅방 생성 완료 (총 참가자: 10,000명)");
+        log.info("✅ 총 {}개 채팅방 생성 완료 (총 참가자: 10,000명)", createdRoomIds.size());
 
         return createdRoomIds;
     }
