@@ -38,6 +38,7 @@ public class ChatModifyService implements ChatSaver {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatSeqGenerator chatSeqGenerator;
 
     private final SimpMessagingTemplate messagingTemplate;     // STOMP 브로드캐스트
     private final WebSocketMetricsConfig metricsConfig;
@@ -100,8 +101,8 @@ public class ChatModifyService implements ChatSaver {
             chatParticipantFinder.findByRoomIdAndMemberId(chatRoom.getId(), sender.getId());
 
             // 채팅 메시지 저장
-            long seq = chatMessageFinder.findLatestMessageSeq(request.roomId()) + 1;
-            ChatMessage chatMessage = ChatMessage.create(request, seq, chatRoom, sender);
+            long seq = chatSeqGenerator.nextSeq(chatRoom.getId());
+            ChatMessage chatMessage = ChatMessage.create(request, seq, chatRoom.getId(), sender.getId());
             ChatMessage saved = chatMessageRepository.save(chatMessage);
             chatRoom.updateLastMessage(saved.getCreatedAt(), saved.getContent());
 
@@ -166,8 +167,8 @@ public class ChatModifyService implements ChatSaver {
     private Map<String, Object> toPayload(ChatMessage m) {
         Map<String, Object> payload = new HashMap<>();
 
-        payload.put("roomId",   m.getRoom().getId());                 // 반드시 값 있음
-        payload.put("senderId", m.getSender().getId());               // 반드시 값 있음
+        payload.put("roomId",   m.getRoomId());                 // 반드시 값 있음
+        payload.put("senderId", m.getSenderId());               // 반드시 값 있음
         payload.put("type",     m.getType().name());     // enum은 name()로 문자열 전송 권장
         payload.put("seq",      m.getSeq());
         payload.put("createdAt", m.getCreatedAt());

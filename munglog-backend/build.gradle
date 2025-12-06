@@ -41,6 +41,7 @@ dependencies {
     implementation 'org.postgresql:postgresql'
     implementation 'com.h2database:h2'
     runtimeOnly 'com.h2database:h2'
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
     // QueryDSL
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'

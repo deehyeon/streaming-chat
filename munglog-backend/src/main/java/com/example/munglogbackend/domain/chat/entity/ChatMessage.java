@@ -4,88 +4,86 @@ import com.example.munglogbackend.application.chat.dto.ChatMessageDto;
 import com.example.munglogbackend.domain.chat.enumerate.MessageType;
 import com.example.munglogbackend.domain.chat.exception.ChatErrorType;
 import com.example.munglogbackend.domain.chat.exception.ChatException;
-import com.example.munglogbackend.domain.member.Member;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
 
-@Entity
 @Getter
 @Builder
 @AllArgsConstructor
-@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Document(collection = "chat_messages")
 public class ChatMessage {
     @Id
-    @Getter
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;   // MongoDB 기본 ID
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private ChatRoom room;   // 채팅방
+    @Field("room_id")
+    private Long roomId;   // 채팅방 ID (문자열로 저장)
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id", nullable = false)
-    private Member sender;   // 보낸 사람
+    @Field("sender_id")
+    private Long senderId; // 발신자 ID
 
-    @Column(nullable = false)
+    @Field("content")
     private String content;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MessageType type; // TEXT, IMAGE, VIDEO, FILE 등
+    @Field("type")
+    private MessageType type; // TEXT, IMAGE, VIDEO, FILE, SYSTEM
 
-    private String fileUrl;   // 파일 URL
-    private String fileName;  // 파일명
-    private Long fileSize;    // 파일 크기
+    @Field("file_url")
+    private String fileUrl;
 
-    @Column(nullable = false)
-    private long seq;         // 메시지 정렬용 시퀀스 번호
+    @Field("file_name")
+    private String fileName;
+
+    @Field("file_size")
+    private Long fileSize;
+
+    @Field("seq")
+    private long seq; // 정렬용 시퀀스 번호 (MongoDB에서는 직접 관리)
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false)
+    @Field("created_at")
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column(name = "modified_at")
+    @Field("modified_at")
     private Instant modifiedAt;
 
-    /** 메시지 생성 시 검증 */
-    public static ChatMessage create(ChatMessageDto req, long seq, ChatRoom chatRoom, Member sender) {
+
+    /** 메시지 생성 정적 팩토리 */
+    public static ChatMessage create(ChatMessageDto req, long seq, Long roomId, Long senderId) {
         MessageType mt = (req.type() != null) ? req.type() : MessageType.TEXT;
 
+        // 검증
         switch (mt) {
             case TEXT -> {
                 if (req.content() == null || req.content().isBlank()) {
-                    throw new ChatException(ChatErrorType.INVALID_MESSAGE); // 내용 필요
+                    throw new ChatException(ChatErrorType.INVALID_MESSAGE);
                 }
             }
             case IMAGE, VIDEO, FILE -> {
                 if (req.fileUrl() == null || req.fileUrl().isBlank()) {
-                    throw new ChatException(ChatErrorType.INVALID_MESSAGE); // 파일 URL 필요
+                    throw new ChatException(ChatErrorType.INVALID_MESSAGE);
                 }
             }
             case SYSTEM -> {
                 if (req.content() == null || req.content().isBlank()) {
-                    throw new ChatException(ChatErrorType.INVALID_MESSAGE); // 시스템 메시지 내용 필요
+                    throw new ChatException(ChatErrorType.INVALID_MESSAGE);
                 }
             }
         }
 
         return ChatMessage.builder()
-                .room(chatRoom)
-                .sender(sender)
+                .roomId(roomId)
+                .senderId(senderId)
                 .type(mt)
-                .content(req.content())    // TEXT/SYSTEM이면 사용
-                .fileUrl(req.fileUrl())    // IMAGE/VIDEO/FILE이면 사용
+                .content(req.content())
+                .fileUrl(req.fileUrl())
                 .fileName(req.fileName())
                 .fileSize(req.fileSize())
                 .seq(seq)

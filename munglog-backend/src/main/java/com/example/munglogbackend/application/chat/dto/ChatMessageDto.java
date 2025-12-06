@@ -17,8 +17,8 @@ public record ChatMessageDto(
 ) {
     public static ChatMessageDto text(ChatMessage chatMessage) {
         return new ChatMessageDto(
-                chatMessage.getRoom().getId(),
-                chatMessage.getSender().getId(),
+                chatMessage.getRoomId(),
+                chatMessage.getSenderId(),
                 MessageType.TEXT,
                 chatMessage.getContent(),
                 null,
@@ -29,8 +29,8 @@ public record ChatMessageDto(
 
     public static ChatMessageDto fromEntity(ChatMessage chatMessage) {
         return new ChatMessageDto(
-                chatMessage.getRoom().getId(),
-                chatMessage.getSender().getId(),
+                chatMessage.getRoomId(),
+                chatMessage.getSenderId(),
                 chatMessage.getType(),
                 chatMessage.getContent(),
                 chatMessage.getFileUrl(),

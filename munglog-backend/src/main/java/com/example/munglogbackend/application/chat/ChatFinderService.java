@@ -35,16 +35,25 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
     private final ChatMessageRepository chatMessageRepository;
     private final MemberFinder memberFinder;
 
+    /**
+     * roomId에 해당하는 채팅방을 조회한다.
+     * **/
     @Override
     public ChatRoom findRoomByRoomId(Long roomId) {
         return chatRoomRepository.findById(roomId).orElseThrow(() -> new ChatException(ChatErrorType.CHAT_ROOM_NOT_FOUND));
     }
 
+    /**
+     * roomId에 해당하는 채팅방의 참가자 목록을 조회한다.
+     * **/
     @Override
     public List<ChatParticipant> findChatParticipants(Long roomId) {
         return chatParticipantRepository.findAllByChatRoomId(roomId);
     }
 
+    /**
+     * roomId에 해당하는 채팅방에서 나를 제외한 참가자 ID 목록을 조회한다.
+     * **/
     @Override
     public List<Long> findChatParticipantIdsExcludingMe(Long roomId, Long memberId) {
         return chatParticipantRepository.findAllByChatRoom_IdAndMember_IdNot(roomId, memberId)
@@ -53,6 +62,9 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
                 .toList();
     }
 
+    /**
+     * memberId가 참가하고 있는 채팅방 요약 리스트를 조회한다.
+     * **/
     @Override
     public List<ChatRoomSummary> findRoomsByMember(Long memberId) {
         List<ChatParticipant> chatParticipants = chatParticipantRepository.findAllByMember_Id(memberId);
@@ -82,18 +94,39 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
                 }).toList();
     }
 
+    /**
+     * 모든 그룹 채팅방 요약 리스트를 조회한다.
+     * **/
     @Override
     public List<ChatRoomSummary> findGroupChatRooms(Long memberId) {
+        List<ChatParticipant> chatParticipants = chatParticipantRepository.findAllByMember_Id(memberId);
         memberFinder.findActiveById(memberId);
         List<ChatRoom> groupChatRooms = chatRoomRepository.findAllByChatRoomType(ChatRoomType.GROUP);
 
+        List<Long> roomIds = groupChatRooms.stream().map(ChatRoom::getId).toList();
+
+        // 방별 최신 seq
+        Map<Long, Long> latestSeqMap = chatMessageRepository.findMaxSeqForRoomIds(roomIds);
+
+        // 방별 unreadCount 계산
+        Map<Long, Long> unreadMap = new HashMap<>();
+        for (ChatParticipant cp : chatParticipants) {
+            Long roomId = cp.getChatRoom().getId();
+            long unread = getUnReadCount(cp, latestSeqMap, roomId);
+            unreadMap.put(roomId, unread);
+        }
+
         return groupChatRooms.stream()
+                .sorted(Comparator.comparing(ChatRoom::getLastMessageAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .map(room -> {
-                    return ChatRoomSummary.of(room, 0L, room.getChatRoomType(), room.getLastMessagePreview(),  room.getLastMessageAt());
+                    long unread = unreadMap.getOrDefault(room.getId(), 0L);
+                    return ChatRoomSummary.of(room, unread,room.getChatRoomType(), room.getLastMessagePreview(), room.getLastMessageAt());
                 }).toList();
     }
 
-    // 특정 메시지(seq) 이전의 N개 메시지를 가져온다.
+    /**
+     * roomId에 해당하는 채팅방의 beforeSeq 이전 메시지들을 size만큼 조회한다.
+     * **/
     @Override
     public Slice<ChatMessageDto> fetchMessagesBeforeSeq(Long roomId, Long beforeSeq, int size, Long memberId) {
         // 멤버가 채팅방의 구성원인지 확인
@@ -107,9 +140,9 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
         List<ChatMessage> rows;
 
         if (beforeSeq == null) {
-            rows = chatMessageRepository.findByRoom_IdOrderBySeqDesc(roomId, pageable);
+            rows = chatMessageRepository.findByRoomIdOrderBySeqDesc(roomId, pageable);
         } else {
-            rows = chatMessageRepository.findByRoom_IdAndSeqLessThanOrderBySeqDesc(roomId, beforeSeq, pageable);
+            rows = chatMessageRepository.findByRoomIdAndSeqLessThanOrderBySeqDesc(roomId, beforeSeq, pageable);
         }
 
         boolean hasNext = rows.size() > size;
@@ -122,6 +155,9 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
         return new SliceImpl<>(content, PageRequest.of(0, size), hasNext);
     }
 
+    /**
+     * roomId와 memberId에 해당하는 채팅방 참가자 정보를 조회한다.
+     * **/
     @Override
     public ChatParticipant findByRoomIdAndMemberId(Long roomId, Long memberId) {
         return chatParticipantRepository
@@ -130,16 +166,23 @@ public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder,
 
     }
 
+    /**
+     * memberId가 roomId 채팅방의 구성원인지 확인한다.
+     * **/
     @Override
     public boolean isRoomMember(Long roomId, Long memberId) {
         return chatParticipantRepository.findByChatRoom_IdAndMember_Id(roomId, memberId).isPresent();
     }
 
+    /**
+     * roomId에 해당하는 채팅방의 최신 메시지 seq를 조회한다.
+     * **/
     @Override
     public long findLatestMessageSeq(Long roomId) {
-        return chatMessageRepository.findMaxSeqForUpdate(roomId);
+        return chatMessageRepository.findLatestMessageSeq(roomId);
     }
 
+    /** 읽지 않은 메시지 수 계산 */
     private static long getUnReadCount(ChatParticipant cp, Map<Long, Long> latestSeqMap, Long roomId) {
         long lastReadSeq = cp.getLastReadSeq();
         long latestSeq = latestSeqMap.getOrDefault(roomId, 0L);
