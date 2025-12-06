@@ -6,6 +6,8 @@ services:
       - "${REDIS_PORT}:6379"
     networks:
       - munglog_network
+    volumes:
+      - redis_data:/data
 
   postgres:
     container_name: munglog-db
@@ -18,6 +20,8 @@ services:
       - "${POSTGRES_HOST_PORT}:5432"
     networks:
       - munglog_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   mongodb:
     container_name: munglog-mongodb
@@ -30,8 +34,18 @@ services:
       - "${MONGODB_HOST_PORT}:27017"
     networks:
       - munglog_network
+    volumes:
+      - mongodb_data:/data/db
 
 networks:
   munglog_network:
     driver: bridge
     name: munglog_network
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
