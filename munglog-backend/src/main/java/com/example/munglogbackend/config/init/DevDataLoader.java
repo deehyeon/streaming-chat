@@ -3,7 +3,6 @@ package com.example.munglogbackend.config.init;
 import com.example.munglogbackend.application.member.required.MemberRepository;
 import com.example.munglogbackend.application.shelter.required.ShelterRepository;
 import com.example.munglogbackend.application.volunteer_application.required.VolunteerApplicationRepository;
-import com.example.munglogbackend.domain.global.vo.Address;
 import com.example.munglogbackend.domain.global.vo.Email;
 import com.example.munglogbackend.domain.member.Member;
 import com.example.munglogbackend.domain.member.dto.AddressRequest;
@@ -35,7 +34,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Profile({"local", "prod"})
+@Profile({"prod"})
 public class DevDataLoader implements CommandLineRunner {
 
     private final MemberRepository memberRepository;
@@ -96,8 +95,8 @@ public class DevDataLoader implements CommandLineRunner {
                 log.error("❌ 봉사 신청 생성 중 오류 발생 - 나머지 데이터는 유지합니다.", e);
             }
 
-            Long chatRoomId = chatRoomLoader.createLoadTestGroupRoom();
-            log.info("✅ Group chat room created with ID: {}", chatRoomId);
+            List<Long> chatRoomIds = chatRoomLoader.createLoadTestGroupRooms();
+            log.info("✅ Group chat room created with ID: {}", chatRoomIds);
 
             // 6. 최종 통계
             log.info("");

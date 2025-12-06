@@ -1,11 +1,7 @@
 package com.example.munglogbackend.application.chat.required;
 
-import com.example.munglogbackend.domain.chat.entity.QChatMessage;
-import com.querydsl.core.Tuple;
-import com.querydsl.jpa.impl.JPAQueryFactory;
-import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -16,43 +12,64 @@ import java.util.Map;
 @Repository
 @RequiredArgsConstructor
 public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
-    private final JPAQueryFactory queryFactory;
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private String key(Long roomId) {
+        return "chat:room:" + roomId + ":seq";
+    }
 
     @Override
     public Map<Long, Long> findMaxSeqForRoomIds(Collection<Long> roomIds) {
+        Map<Long, Long> result = new LinkedHashMap<>();
+
         if (roomIds == null || roomIds.isEmpty()) {
-            return Map.of();
+            return result;
         }
 
-        QChatMessage chatMessage = QChatMessage.chatMessage;
+        // 입력 순서를 유지하면서 기본값 0L 세팅
+        roomIds.forEach(id -> result.put(id, 0L));
 
-        // roomId 별 max(seq) 조회
-        List<Tuple> results = queryFactory
-                .select(
-                        chatMessage.room.id,
-                        chatMessage.seq.max()
-                )
-                .from(chatMessage)
-                .where(chatMessage.room.id.in(roomIds))
-                .groupBy(chatMessage.room.id)
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .fetch();
+        // Redis multiGet 사용 (한 번에 조회)
+        List<String> keys = roomIds.stream()
+                .map(this::key)
+                .toList();
 
-        // 기본값 0으로 채워두고 결과 덮어쓰기
-        Map<Long, Long> map = new LinkedHashMap<>();
-        for (Long id : roomIds) {
-            map.put(id, 0L);
+        List<String> values = stringRedisTemplate.opsForValue().multiGet(keys);
+
+        if (values == null) {
+            return result;
         }
 
-        for (Tuple tuple : results) {
-            Long roomId = tuple.get(chatMessage.room.id);
-            Long maxSeq = tuple.get(chatMessage.seq.max());
+        int idx = 0;
+        for (Long roomId : roomIds) {
+            if (idx >= values.size()) break;
 
-            if (roomId != null && maxSeq != null) {
-                map.put(roomId, maxSeq);
+            String value = values.get(idx++);
+            if (value != null) {
+                try {
+                    long seq = Long.parseLong(value);
+                    result.put(roomId, seq);
+                } catch (NumberFormatException e) {
+                    // 잘못된 값이면 그냥 0 유지
+                }
             }
         }
 
-        return map;
+        return result;
+    }
+    @Override
+    public long findLatestMessageSeq(Long roomId) {
+        String value = stringRedisTemplate.opsForValue().get(key(roomId));
+
+        if (value == null) {
+            return 0L; // 메시지 없는 방 → seq=0
+        }
+
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L; // 잘못 저장된 값이 있다면 기본값 반환
+        }
     }
 }

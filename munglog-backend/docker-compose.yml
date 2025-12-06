@@ -19,6 +19,18 @@ services:
     networks:
       - munglog_network
 
+  mongodb:
+    container_name: munglog-mongodb
+    image: mongo:6.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB}
+    ports:
+      - "${MONGODB_HOST_PORT}:27017"
+    networks:
+      - munglog_network
+
 networks:
   munglog_network:
     driver: bridge
