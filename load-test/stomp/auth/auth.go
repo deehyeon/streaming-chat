@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"stomp-load-test/config"
+	"strings" // ✅ 추가
 )
 
 // LoginRequest represents login request DTO
@@ -15,26 +16,22 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-// TokenInfo represents token information
 type TokenInfo struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
-// MemberInfo represents member information
 type MemberInfo struct {
 	MemberId   int64  `json:"memberId"`
 	MemberName string `json:"memberName"`
 	MemberRole string `json:"memberRole"`
 }
 
-// LoginResponseData represents login response data
 type LoginResponseData struct {
 	TokenInfo  TokenInfo  `json:"tokenInfo"`
 	MemberInfo MemberInfo `json:"memberInfo"`
 }
 
-// ApiResponse represents API response wrapper
 type ApiResponse struct {
 	Result string          `json:"result"`
 	Data   json.RawMessage `json:"data"`
@@ -46,11 +43,16 @@ func AutoLogin(cfg *config.Config, email, password string) (string, int64, error
 	if cfg == nil || cfg.HTTPClient == nil {
 		return "", 0, fmt.Errorf("config 또는 HTTPClient가 nil 입니다")
 	}
-	if cfg.ServerURL == "" {
-		return "", 0, fmt.Errorf("SERVER_URL이 비어 있습니다")
+	// ✅ WebSocket용 ServerURL 말고, HTTP용 APIBaseURL 체크
+	if cfg.APIBaseURL == "" {
+		return "", 0, fmt.Errorf("API_BASE_URL이 비어 있습니다")
 	}
 
-	endpoint := "http://" + cfg.ServerURL + "/v1/auth/login"
+	// ✅ APIBaseURL 기반으로 엔드포인트 생성 (중복 http:// 방지)
+	base := strings.TrimRight(cfg.APIBaseURL, "/")
+	endpoint := base + "/v1/auth/login"
+	// 만약 실제 백엔드가 /api/v1/auth/login 이라면:
+	// endpoint := base + "/api/v1/auth/login"
 
 	loginReq := LoginRequest{
 		Email:    email,

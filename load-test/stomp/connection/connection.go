@@ -24,8 +24,7 @@ func ConnectWebSocket(cfg *config.Config, workerID int) (*websocket.Conn, error)
 	header := http.Header{}
 	header.Add("Authorization", "Bearer "+cfg.Token)
 
-	wsURL := fmt.Sprintf("ws://%s/ws-stomp", cfg.ServerURL)
-	conn, _, err := dialer.Dial(wsURL, header)
+	conn, _, err := dialer.Dial(cfg.ServerURL, header)
 	if err != nil {
 		return nil, fmt.Errorf("WebSocket 연결 실패: %w", err)
 	}
@@ -82,6 +81,7 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 	reconnectStart := time.Now()
 	err = backoff.Retry(operation, backoffWithContext)
 	if err != nil {
+		metrics.FailedReconnections.Inc()
 		return nil, fmt.Errorf("Worker %d 최대 재시도 횟수 초과: %w", workerID, err)
 	}
 
@@ -89,6 +89,8 @@ func ConnectWithRetry(ctx context.Context, cfg *config.Config, workerID int) (*w
 	if retryCount > 0 {
 		reconnectDuration := float64(time.Since(reconnectStart).Milliseconds())
 		metrics.ReconnectionTime.Observe(reconnectDuration)
+		metrics.SuccessfulReconnections.Inc()
+		log.Printf("✓ Worker %d 재연결 성공 (시도: %d회, 소요: %.2fms)\n", workerID, retryCount, reconnectDuration)
 	}
 
 	return conn, nil

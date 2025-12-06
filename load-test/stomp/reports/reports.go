@@ -189,25 +189,41 @@ func MakeReport(
 	fmt.Printf("\033[1;36m%s 전체 테스트 결과 통계 %s\033[0m\n", strings.Repeat(" ", 45), strings.Repeat(" ", 45))
 	fmt.Printf("\033[1;36m%s\033[0m\n\n", strings.Repeat("═", 120))
 
+	// ⚠️ 수정: 성공률 계산 로직
+	sent := sendMessageCount.Load()
+	success := successCount.Load()
+	received := receiveMessageCount.Load()
+	errors := errorCount.Load()
+
+	var successRate float64
+	if sent > 0 {
+		successRate = float64(success) / float64(sent) * 100
+	} else {
+		successRate = 0
+	}
+
 	// 기본 정보
 	fmt.Printf("\033[1m📊 테스트 요약\033[0m\n")
 	fmt.Printf("  총 워커 수: \033[1;33m%d\033[0m\n", totalWorkers)
 	fmt.Printf("  테스트 시간: \033[1;33m%v\033[0m\n", testDuration.Round(time.Millisecond))
-	fmt.Printf("  성공률: \033[1;32m%.2f%%\033[0m (%d/%d)\n\n",
-		float64(successCount.Load())/float64(totalWorkers)*100,
-		successCount.Load(),
-		totalWorkers)
+	// ⚠️ 수정: 올바른 성공률 표시
+	fmt.Printf("  메시지 성공률: \033[1;32m%.2f%%\033[0m (%d/%d 전송 성공)\n\n",
+		successRate,
+		success,
+		sent)
 
 	// 메시지 통계
 	fmt.Printf("\033[1m📨 메시지 통계\033[0m\n")
-	fmt.Printf("  전송: \033[32m%d\033[0m\n", sendMessageCount.Load())
-	fmt.Printf("  수신: \033[32m%d\033[0m\n", receiveMessageCount.Load())
-	fmt.Printf("  오류: \033[31m%d\033[0m\n\n", errorCount.Load())
+	fmt.Printf("  전송: \033[32m%d\033[0m\n", sent)
+	fmt.Printf("  수신: \033[32m%d\033[0m (브로드캐스트 포함)\n", received)
+	fmt.Printf("  성공: \033[32m%d\033[0m (왕복 확인 완료)\n", success)
+	fmt.Printf("  실패: \033[33m%d\033[0m (타임아웃/미수신)\n", sent-success)
+	fmt.Printf("  오류: \033[31m%d\033[0m\n\n", errors)
 
 	// 성능 메트릭
 	fmt.Printf("\033[1m⚡ 성능 메트릭\033[0m\n\n")
 
-	fmt.Printf("  \033[1m메시지 지연 시간\033[0m\n  ")
+	fmt.Printf("  \033[1m메시지 지연 시간\033[0m (성공한 %d개 메시지 기준)\n  ", success)
 	printResult(messageLatencyList)
 	fmt.Printf("\n\n")
 
@@ -225,11 +241,12 @@ func MakeReport(
 	csvData := make(map[string]interface{})
 	csvData["total_workers"] = totalWorkers
 	csvData["test_duration_seconds"] = testDuration.Seconds()
-	csvData["success_count"] = successCount.Load()
-	csvData["send_message_count"] = sendMessageCount.Load()
-	csvData["receive_message_count"] = receiveMessageCount.Load()
-	csvData["error_count"] = errorCount.Load()
-	csvData["success_rate"] = float64(successCount.Load()) / float64(totalWorkers) * 100
+	csvData["messages_sent"] = sent
+	csvData["messages_received"] = received
+	csvData["messages_success"] = success
+	csvData["messages_failed"] = sent - success
+	csvData["error_count"] = errors
+	csvData["success_rate_percent"] = successRate
 
 	// 통계 데이터 추가
 	for k, v := range generateStats("message_latency", messageLatencyList) {
