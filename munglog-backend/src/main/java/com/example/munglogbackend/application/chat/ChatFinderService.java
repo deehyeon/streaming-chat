@@ -27,7 +27,7 @@ import static org.springframework.data.domain.Sort.Direction.DESC;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 @Slf4j
 public class ChatFinderService implements ChatRoomFinder, ChatParticipantFinder, ChatMessageFinder {
     private final ChatRoomRepository chatRoomRepository;

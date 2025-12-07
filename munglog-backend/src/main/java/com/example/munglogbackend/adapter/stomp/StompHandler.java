@@ -94,7 +94,8 @@ public class StompHandler implements ChannelInterceptor {
                     throw new MessagingException("UNAUTHORIZED_ROOM_MEMBER");
                 }
                 return message;
-            }        }
+            }
+        }
         return message;
     }
 
