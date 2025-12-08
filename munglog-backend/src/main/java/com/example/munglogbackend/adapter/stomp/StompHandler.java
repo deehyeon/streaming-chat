@@ -73,14 +73,10 @@ public class StompHandler implements ChannelInterceptor {
                 return message;
             }
 
-            // 2) 방 토픽: /topic/chat/room/{roomId}
-            if (destination.startsWith("/topic/chat/room/")) {
-                String[] segs = destination.split("/");
-                // ["", "topic", "chat", "room", "{roomId}"]
-                if (segs.length < 5) {
-                    throw new MessagingException("Invalid room topic: " + destination);
-                }
-                String roomIdStr = segs[4];
+            // 2) 방 토픽: /topic/chat.room.{roomId}
+            if (destination.startsWith("/topic/chat.room.")) {
+                String prefix = "/topic/chat.room.";
+                String roomIdStr = destination.substring(prefix.length()); // "{roomId}"
 
                 String authenticatedUserId = (auth != null) ? auth.getName() : null;
                 if (authenticatedUserId == null) {
@@ -95,6 +91,7 @@ public class StompHandler implements ChannelInterceptor {
                 }
                 return message;
             }
+
         }
         return message;
     }
