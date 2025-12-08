@@ -72,10 +72,10 @@ public class RabbitConfig {
     public ConnectionFactory connectionFactory() {
         CachingConnectionFactory factory = new CachingConnectionFactory();
         factory.setHost(relayHost);
-        factory.setPort(relayPort);
+        factory.setPort(5672);
         factory.setVirtualHost("/");
-        factory.setUsername("guest");
-        factory.setPassword("guest");
+        factory.setUsername(relayLogin);
+        factory.setPassword(relayPasscode);
         return factory;
     }
 
