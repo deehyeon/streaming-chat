@@ -111,7 +111,7 @@ public class ChatModifyService implements ChatSaver {
             long currentSeq = chatMessageFinder.findLatestMessageSeq(request.roomId());
 
             // STOMP 채팅방으로 브로드캐스트
-            String destination = "/topic/chat.room." + request.roomId();
+            String destination = "/topic/chat/room/" + request.roomId();
             messagingTemplate.convertAndSend(destination, toPayload(chatMessage));
 
             // 메시지 전송 카운트 추가
