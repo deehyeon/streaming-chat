@@ -20,6 +20,7 @@ import com.example.munglogbackend.domain.member.Member;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +41,7 @@ public class ChatModifyService implements ChatSaver {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSeqGenerator chatSeqGenerator;
 
-    private final SimpMessagingTemplate messagingTemplate;     // STOMP 브로드캐스트
+    private final RabbitTemplate rabbitTemplate;
     private final WebSocketMetricsConfig metricsConfig;
 
     @Override
@@ -112,7 +113,7 @@ public class ChatModifyService implements ChatSaver {
 
             // STOMP 채팅방으로 브로드캐스트
             String destination = "/topic/chat.room." + request.roomId();
-            messagingTemplate.convertAndSend(destination, toPayload(chatMessage));
+            rabbitTemplate.convertAndSend(destination, toPayload(chatMessage));
 
             // 메시지 전송 카운트 추가
             metricsConfig.recordMessageSent("chat_message", true);
@@ -126,7 +127,7 @@ public class ChatModifyService implements ChatSaver {
                 long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
 
                 String userDestination = "/topic/user." + memberId + ".room-summary";
-                messagingTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
+                rabbitTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
 
                 // 개인 토픽 전송도 카운트
                 metricsConfig.recordMessageSent("user_room_summary", false);

@@ -54,8 +54,8 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // 클라이언트로 메시지를 보낼 때 사용할 prefix 설정
         // /topic으로 시작하는 메시지는 메시지 브로커가 해당 구독자에게 전달한다.
         // 예: /topic/chatroom/1
-        registry.enableStompBrokerRelay("/topic")
-                .setRelayHost("rabbitmq")
+        registry.enableStompBrokerRelay("/queue", "/topic", "/exchange", "/amq/queue")
+                .setRelayHost(relayHost)
                 .setRelayPort(relayPort)
                 .setClientLogin(relayLogin)
                 .setClientPasscode(relayPasscode)
