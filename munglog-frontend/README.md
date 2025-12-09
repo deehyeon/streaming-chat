@@ -1,122 +1,52 @@
-# 멍로그 (MongLog)
+# 멍로그 프론트엔드
 
-유기견 보호소 봉사 신청 서비스 웹 애플리케이션
+유기견 보호소 봉사 신청 플랫폼 프론트엔드
 
-![멍로그](https://img.shields.io/badge/MongLog-FFB701?style=for-the-badge&logo=dog&logoColor=white)
+## 환경 설정
 
-## 📋 주요 기능
+### 1. 환경 변수 설정
 
-- 🏠 **보호소 찾기**: 지역별 유기견 보호소 검색 및 필터링
-- 🐕 **분실/보호 게시판**: 실종 및 보호 동물 정보 공유
-- 💝 **분양하기**: 유기견 입양 정보 제공
-- 🎨 **3D 인터랙티브 UI**: Three.js를 활용한 동적인 홈 화면
+프로젝트 루트에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
 
-## 🛠️ 기술 스택
-
-- **Frontend**: React 18.2.0
-- **3D Graphics**: Three.js (r128)
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Build Tool**: React Scripts
-
-## 🚀 설치 및 실행
-
-### 1. 저장소 클론
 ```bash
-git clone https://github.com/deehyeon/munglog-frontend.git
-cd munglog-frontend
+cp .env.example .env
 ```
 
-### 2. 의존성 설치
+`.env` 파일에 카카오 맵 API 키를 설정하세요:
+
+```
+VITE_KAKAO_MAP_API_KEY=your_kakao_map_api_key_here
+```
+
+### 2. 카카오 맵 API 키 발급
+
+1. [카카오 디벨로퍼스](https://developers.kakao.com/)에 접속
+2. 내 애플리케이션 > 애플리케이션 추가하기
+3. 앱 설정 > 플랫폼 설정에서 웹 플랫폼 추가
+4. 사이트 도메인 등록 (개발: `http://localhost:3001`, 운영: 실제 도메인)
+5. 앱 키 > JavaScript 키를 `.env` 파일에 추가
+
+**⚠️ 보안 주의사항:**
+- `.env` 파일은 절대 Git에 커밋하지 마세요
+- 카카오 디벨로퍼스에서 반드시 도메인 제한을 설정하세요
+
+## 개발 서버 실행
+
 ```bash
 npm install
+npm run dev
 ```
 
-### 3. 개발 서버 실행
-```bash
-npm start
-```
+## 빌드
 
-브라우저에서 [http://localhost:3000](http://localhost:3000)으로 자동으로 열립니다.
-
-## 📦 빌드
-
-프로덕션 빌드를 생성하려면:
 ```bash
 npm run build
 ```
 
-빌드된 파일은 `build` 폴더에 생성됩니다.
+## 기능
 
-## 📁 프로젝트 구조
-
-```
-munglog-frontend/
-├── public/
-│   └── index.html
-├── src/
-│   ├── components/        # 재사용 가능한 컴포넌트
-│   │   └── common/
-│   │       ├── Header.jsx
-│   │       ├── Footer.jsx
-│   │       ├── DogLogo.jsx
-│   │       └── LocationModal.jsx
-│   ├── pages/            # 페이지 컴포넌트
-│   │   ├── Home.jsx
-│   │   ├── Shelters.jsx
-│   │   ├── Missing.jsx
-│   │   └── Adoption.jsx
-│   ├── constants/        # 상수 및 데이터
-│   │   ├── colors.js
-│   │   └── mockData.js
-│   ├── App.js           # 메인 앱 컴포넌트
-│   ├── index.js         # 진입점
-│   └── index.css        # 전역 스타일
-├── package.json
-└── README.md
-```
-
-## 🎨 컬러 팔레트
-
-- **Primary**: `#FFB701` - 메인 강조 색상
-- **Secondary**: `#FEDF04` - 보조 색상
-- **Light**: `#FEF79E` - 밝은 강조 색상
-- **Gray**: `#ABADA7` - 중립 색상
-
-## ✨ 주요 화면
-
-### 홈 화면
-- 3D 인터랙티브 씬 (강아지, 나비, 구름 애니메이션)
-- 사과나무가 있는 풍경
-- 멍로그만의 특징 소개
-
-### 보호소 찾기
-- 지도 기반 보호소 검색
-- 지역별 필터링
-- 보호소 상세 정보
-
-### 분실/보호 게시판
-- 실종 게시판
-- 보호 게시판
-- 게시물 필터링
-
-### 분양하기
-- 분양 가능한 강아지 목록
-- 나이/성별/견종 필터링
-- 분양 신청
-
-## 🤝 기여하기
-
-Pull Request를 환영합니다!
-
-## 👤 개발자
-
-**deehyeon**
-
-## 📄 라이선스
-
-MIT
-
----
-
-Made with ❤️ for rescue dogs 🐕
+- 실시간 채팅
+- 보호소 찾기 (카카오 맵 연동)
+- 봉사 신청
+- 입양 공고
+- 실종 신고

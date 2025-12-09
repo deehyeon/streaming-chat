@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { getShelters, searchSheltersByName } from '../api/shelterApi';
+import KakaoMap from '../components/KakaoMap';
 
 export default function Shelters() {
   const navigate = useNavigate();
@@ -130,29 +131,33 @@ export default function Shelters() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Section */}
+      {/* Hero Section with Map */}
       <div className="relative bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl p-12 overflow-hidden">
         <div className="absolute top-10 left-20 text-2xl opacity-40">🐾</div>
         <div className="absolute top-32 right-32 text-2xl opacity-40">🐾</div>
         <div className="absolute bottom-20 left-1/4 text-2xl opacity-40">🐾</div>
         <div className="absolute bottom-32 right-20 text-2xl opacity-40">🐾</div>
 
-        <div className="relative z-10 text-center space-y-6">
-          <div className="inline-block bg-yellow-400 text-gray-800 px-8 py-4 rounded-full font-bold text-lg shadow-lg">
-            당신과 함께 갈 보호소를 찾아볼까요? 🐕
+        <div className="relative z-10 space-y-6">
+          <div className="text-center space-y-4">
+            <div className="inline-block bg-yellow-400 text-gray-800 px-8 py-4 rounded-full font-bold text-lg shadow-lg">
+              당신과 함께 갈 보호소를 찾아볼까요? 🐕
+            </div>
+
+            <div className="flex flex-col items-center space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700 font-semibold">보호소 지킴이도</span>
+                <span className="text-2xl">🐾</span>
+              </div>
+              <p className="text-gray-600 text-sm">
+                신뢰할 지역의 보호소 위치가 표시됩니다
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-col items-center space-y-3">
-            <div className="w-20 h-20 bg-blue-200 rounded-lg flex items-center justify-center text-4xl shadow-md">
-              🗺️
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-700 font-semibold">보호소 지킴이도</span>
-              <span className="text-2xl">🐾</span>
-            </div>
-            <p className="text-gray-600 text-sm">
-              신뢰할 지역의 보호소 위치가 표시됩니다
-            </p>
+          {/* Kakao Map */}
+          <div className="w-full h-96 bg-white rounded-lg shadow-md overflow-hidden">
+            <KakaoMap shelters={shelters} height="384px" />
           </div>
         </div>
       </div>

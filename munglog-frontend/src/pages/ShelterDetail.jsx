@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getShelterDetail } from '../api/shelterApi';
 import { createPrivateChatRoom } from '../api/chatApi';
+import KakaoMap from '../components/KakaoMap';
 
 export default function ShelterDetail() {
   const { shelterId } = useParams();
@@ -157,6 +158,11 @@ export default function ShelterDetail() {
       </div>
     );
   }
+
+  // 주소 문자열 생성
+  const fullAddress = shelterData.address ? 
+    `${shelterData.address.streetAddress || ''} ${shelterData.address.detailAddress || ''}`.trim() : 
+    null;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -313,17 +319,14 @@ export default function ShelterDetail() {
           )}
 
           {/* 지도 */}
-          {shelterData.address && (
+          {fullAddress && (
             <div className="bg-white rounded-2xl shadow-md p-8">
               <h3 className="text-base font-bold text-gray-800 mb-4">
                 {shelterData.address.streetAddress} {shelterData.address.detailAddress}
                 {shelterData.address.postalCode && ` (우: ${shelterData.address.postalCode})`}
               </h3>
-              <div className="w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">🗺️</div>
-                  <p className="text-gray-500">지도 영역 (카카오맵 또는 네이버맵 API 연동 예정)</p>
-                </div>
+              <div className="w-full h-96 rounded-lg overflow-hidden">
+                <KakaoMap address={fullAddress} height="384px" />
               </div>
             </div>
           )}
