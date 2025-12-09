@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { KAKAO_MAP_API_KEY, isKakaoMapApiKeyValid } from '../config/kakaoConfig';
 
 const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
   const mapContainer = useRef(null);
@@ -7,11 +8,9 @@ const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // 환경변수에서 API 키 가져오기
-    const apiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
-
-    if (!apiKey) {
-      setError('Kakao Map API 키가 설정되지 않았습니다.');
+    // API 키 유효성 검사
+    if (!isKakaoMapApiKeyValid()) {
+      setError('Kakao Map API 키가 설정되지 않았습니다. .env 파일을 확인하세요.');
       setIsLoading(false);
       return;
     }
@@ -26,7 +25,7 @@ const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
         }
 
         const script = document.createElement('script');
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`;
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_API_KEY}&libraries=services&autoload=false`;
         script.async = true;
         script.onload = () => {
           window.kakao.maps.load(() => {
