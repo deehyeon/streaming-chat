@@ -15,6 +15,7 @@ const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
       return;
     }
 
+    // API 키 가져오기
     const apiKey = getKakaoMapApiKey();
 
     // 카카오 맵 스크립트 동적 로드
