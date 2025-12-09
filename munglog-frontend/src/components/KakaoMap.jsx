@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KAKAO_MAP_API_KEY, isKakaoMapApiKeyValid } from '../config/kakaoConfig';
+import { getKakaoMapApiKey, isKakaoMapApiKeyValid } from '../config/kakaoConfig';
 
 const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
   const mapContainer = useRef(null);
@@ -15,6 +15,8 @@ const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
       return;
     }
 
+    const apiKey = getKakaoMapApiKey();
+
     // 카카오 맵 스크립트 동적 로드
     const loadKakaoMapScript = () => {
       return new Promise((resolve, reject) => {
@@ -25,7 +27,7 @@ const KakaoMap = ({ address, shelters = [], height = '384px' }) => {
         }
 
         const script = document.createElement('script');
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_API_KEY}&libraries=services&autoload=false`;
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`;
         script.async = true;
         script.onload = () => {
           window.kakao.maps.load(() => {
