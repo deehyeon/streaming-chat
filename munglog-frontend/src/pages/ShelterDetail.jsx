@@ -1,5 +1,5 @@
 // src/pages/ShelterDetail.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getShelterDetail } from '../api/shelterApi';
 import { createPrivateChatRoom } from '../api/chatApi';
@@ -17,13 +17,7 @@ export default function ShelterDetail() {
   const [error, setError] = useState(null);
   const [creatingChat, setCreatingChat] = useState(false);
 
-  useEffect(() => {
-    if (shelterId) {
-      fetchShelterDetail();
-    }
-  }, [shelterId]);
-
-  const fetchShelterDetail = async () => {
+  const fetchShelterDetail = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getShelterDetail(shelterId);
@@ -40,7 +34,13 @@ export default function ShelterDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [shelterId]);
+
+  useEffect(() => {
+    if (shelterId) {
+      fetchShelterDetail();
+    }
+  }, [shelterId, fetchShelterDetail]);
 
   // 🔥 1:1 채팅방 생성 및 이동
   const handleCreateChat = async () => {

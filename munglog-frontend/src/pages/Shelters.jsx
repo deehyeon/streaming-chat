@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { getShelters, searchSheltersByName } from '../api/shelterApi';
 import KakaoMap from '../components/KakaoMap';
@@ -7,10 +7,8 @@ export default function Shelters() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { 
-    isLocationModalOpen, 
     setIsLocationModalOpen,
-    selectedRegion,
-    setSelectedRegion 
+    selectedRegion
   } = useOutletContext();
 
   // URL에서 파라미터 읽기
@@ -34,35 +32,7 @@ export default function Shelters() {
     { id: 'distance', label: '📍 거리순' }
   ];
 
-  // URL 파라미터 업데이트
-  useEffect(() => {
-    const params = {};
-    if (regionParam !== '전국') params.region = regionParam;
-    if (currentPage > 0) params.page = currentPage.toString();
-    if (searchQuery) params.search = searchQuery;
-    
-    setSearchParams(params);
-  }, [regionParam, currentPage, searchQuery]);
-
-  // 보호소 목록 조회
-  useEffect(() => {
-    fetchShelters();
-  }, [regionParam, currentPage]);
-
-  // 검색어 변경 시 디바운싱
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery) {
-        handleSearch();
-      } else {
-        fetchShelters();
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const fetchShelters = async () => {
+  const fetchShelters = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getShelters({
@@ -80,9 +50,9 @@ export default function Shelters() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [regionParam, currentPage]);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     try {
       setLoading(true);
       const response = await searchSheltersByName(searchQuery, currentPage);
@@ -95,7 +65,35 @@ export default function Shelters() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, currentPage]);
+
+  // URL 파라미터 업데이트
+  useEffect(() => {
+    const params = {};
+    if (regionParam !== '전국') params.region = regionParam;
+    if (currentPage > 0) params.page = currentPage.toString();
+    if (searchQuery) params.search = searchQuery;
+    
+    setSearchParams(params);
+  }, [regionParam, currentPage, searchQuery, setSearchParams]);
+
+  // 보호소 목록 조회
+  useEffect(() => {
+    fetchShelters();
+  }, [fetchShelters]);
+
+  // 검색어 변경 시 디바운싱
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery) {
+        handleSearch();
+      } else {
+        fetchShelters();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, handleSearch, fetchShelters]);
 
   const handleShelterClick = (shelterId) => {
     navigate(`/shelters/${shelterId}`);
