@@ -1,4 +1,4 @@
-name: Backend Blue-Green CI/CD
+name: Backend Blue-Green CI/CD (Multi-Instance)
 
 on:
   push:
@@ -134,11 +134,11 @@ jobs:
           echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Tag:** \`${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
 
-    # ========================================
-  # Job 2: Deploy (Blue only, single server)
   # ========================================
-  deploy:
-    name: Deploy to Blue Server (Single)
+  # Job 2: Deploy to Green Server (Zero-Downtime)
+  # ========================================
+  deploy-green:
+    name: Deploy to Green Server
     runs-on: ubuntu-latest
     needs: build
     # main 브랜치 push일 때만 배포
@@ -147,22 +147,25 @@ jobs:
     steps:
       - name: Deployment Info
         run: |
-          echo "### 🎯 Deployment Target (Blue Only)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🟢 Deploying to Green Server" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Target Server:** blue" >> $GITHUB_STEP_SUMMARY
-          echo "**Server IP:** ${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Server:** Green" >> $GITHUB_STEP_SUMMARY
+          echo "**Server IP:** ${{ secrets.GREEN_SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Strategy:** Zero-Downtime Deployment" >> $GITHUB_STEP_SUMMARY
 
-      - name: Deploy to BLUE server
+      - name: Deploy to GREEN server
         uses: appleboy/ssh-action@v1.0.3
         env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          MESSAGE_BROKER_HOST: ${{ secrets.MESSAGE_BROKER_HOST }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_HOST_PORT: ${{ secrets.POSTGRES_HOST_PORT }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
-          MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
           MONGODB_USER: ${{ secrets.MONGODB_USER }}
+          MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
           MONGODB_HOST_PORT: ${{ secrets.MONGODB_HOST_PORT }}
           RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
@@ -172,29 +175,33 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BASE_URL: ${{ secrets.BASE_URL }}
+          BLUE_SERVER_BASE_URL: ${{ secrets.BLUE_SERVER_BASE_URL }}
+          GREEN_SERVER_BASE_URL: ${{ secrets.GREEN_SERVER_BASE_URL }}
+          LOAD_BALANCER_URL: ${{ secrets.LOAD_BALANCER_URL }}
         with:
-          host: ${{ secrets.BLUE_SERVER_HOST }}          # 🔵 Blue 서버만 사용
+          host: ${{ secrets.GREEN_SERVER_HOST }}
           username: ubuntu
-          key: ${{ secrets.BLUE_SERVER_SSH_KEY }}        # 🔵 Blue 서버 SSH 키
-          envs: POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_HOST_PORT,REDIS_PORT,MONGODB_DB,MONGODB_PASSWORD,MONGODB_USER,MONGODB_HOST_PORT,RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_AMQP_PORT, RABBITMQ_MANAGEMENT_PORT, RABBITMQ_STOMP_PORT,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASE_URL
+          key: ${{ secrets.GREEN_SERVER_SSH_KEY }}
+          envs: DB_HOST,MESSAGE_BROKER_HOST,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_HOST_PORT,REDIS_PORT,MONGODB_DB,MONGODB_USER,MONGODB_PASSWORD,MONGODB_HOST_PORT,RABBITMQ_USER,RABBITMQ_PASSWORD,RABBITMQ_AMQP_PORT,RABBITMQ_MANAGEMENT_PORT,RABBITMQ_STOMP_PORT,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASE_URL,BLUE_SERVER_BASE_URL,GREEN_SERVER_BASE_URL,LOAD_BALANCER_URL
           script: |
             set -e
 
-            # 🔵 Blue 서버에서 사용하는 디렉토리
-            cd ~/app/blue
+            cd ~
 
-            echo "=== 🚀 Deploying to BLUE Server (Single) ==="
+            echo "=== 🟢 Deploying to GREEN Server ==="
 
-            echo "=== Updating .env file ==="
-            cat > .env << ENVEOF
+            echo "=== Creating .env file ==="
+            cat > .env.green << ENVEOF
+            DB_HOST=${DB_HOST}
+            MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
             POSTGRES_DB=${POSTGRES_DB}
             POSTGRES_USER=${POSTGRES_USER}
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT}
             REDIS_PORT=${REDIS_PORT}
             MONGODB_DB=${MONGODB_DB}
-            MONGODB_PASSWORD=${MONGODB_PASSWORD}
             MONGODB_USER=${MONGODB_USER}
+            MONGODB_PASSWORD=${MONGODB_PASSWORD}
             MONGODB_HOST_PORT=${MONGODB_HOST_PORT}
             RABBITMQ_USER=${RABBITMQ_USER}
             RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
@@ -204,37 +211,216 @@ jobs:
             GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
             GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
             BASE_URL=${BASE_URL}
+            BLUE_SERVER_BASE_URL=${BLUE_SERVER_BASE_URL}
+            GREEN_SERVER_BASE_URL=${GREEN_SERVER_BASE_URL}
+            LOAD_BALANCER_URL=${LOAD_BALANCER_URL}
             ENVEOF
 
-            chmod 600 .env
+            chmod 600 .env.green
 
             echo "=== Logging in to GitHub Container Registry ==="
             echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             echo "=== Pulling latest image ==="
-            docker compose pull app
+            docker compose -f docker-compose.green.yml --env-file .env.green pull app
 
             echo "=== Stopping old containers ==="
-            docker compose down
+            docker compose -f docker-compose.green.yml --env-file .env.green down
 
             echo "=== Starting new containers ==="
-            docker compose up -d
+            docker compose -f docker-compose.green.yml --env-file .env.green up -d
 
-            echo "=== Waiting for application (45s) ==="
-            sleep 45
+            echo "=== Waiting for application (60s) ==="
+            sleep 60
+
+      - name: Health check GREEN server
+        uses: jtalk/url-health-check-action@v4
+        with:
+          url: http://${{ secrets.GREEN_SERVER_HOST }}/actuator/health
+          max-attempts: 20
+          retry-delay: 10s
+
+      - name: Green Deployment Success
+        run: |
+          echo "### ✅ Green Server Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Server:** Green (168.107.31.207)" >> $GITHUB_STEP_SUMMARY
+          echo "**Health check:** Passed ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Next Step:** Manually switch LoadBalancer traffic to Green" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================
+  # Job 3: Manual Approval (Optional)
+  # ========================================
+  # GitHub Actions에서는 수동 승인을 위해 Environment를 사용
+  # Settings → Environments → production 생성 후
+  # Required reviewers 설정 필요
+
+  # ========================================
+  # Job 4: Deploy to Blue Server (After Green Success)
+  # ========================================
+  deploy-blue:
+    name: Deploy to Blue Server
+    runs-on: ubuntu-latest
+    needs: deploy-green
+    # Green 배포 성공 후에만 실행
+    if: success()
+
+    steps:
+      - name: Deployment Info
+        run: |
+          echo "### 🔵 Deploying to Blue Server" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Server:** Blue" >> $GITHUB_STEP_SUMMARY
+          echo "**Server IP:** ${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Standby mode (not receiving traffic)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy to BLUE server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          MESSAGE_BROKER_HOST: ${{ secrets.MESSAGE_BROKER_HOST }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST_PORT: ${{ secrets.POSTGRES_HOST_PORT }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          MONGODB_DB: ${{ secrets.MONGODB_DB }}
+          MONGODB_USER: ${{ secrets.MONGODB_USER }}
+          MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+          MONGODB_HOST_PORT: ${{ secrets.MONGODB_HOST_PORT }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          RABBITMQ_AMQP_PORT: ${{ secrets.RABBITMQ_AMQP_PORT }}
+          RABBITMQ_MANAGEMENT_PORT: ${{ secrets.RABBITMQ_MANAGEMENT_PORT }}
+          RABBITMQ_STOMP_PORT: ${{ secrets.RABBITMQ_STOMP_PORT }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+          BLUE_SERVER_BASE_URL: ${{ secrets.BLUE_SERVER_BASE_URL }}
+          GREEN_SERVER_BASE_URL: ${{ secrets.GREEN_SERVER_BASE_URL }}
+          LOAD_BALANCER_URL: ${{ secrets.LOAD_BALANCER_URL }}
+        with:
+          host: ${{ secrets.BLUE_SERVER_HOST }}
+          username: ubuntu
+          key: ${{ secrets.BLUE_SERVER_SSH_KEY }}
+          envs: DB_HOST,MESSAGE_BROKER_HOST,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_HOST_PORT,REDIS_PORT,MONGODB_DB,MONGODB_USER,MONGODB_PASSWORD,MONGODB_HOST_PORT,RABBITMQ_USER,RABBITMQ_PASSWORD,RABBITMQ_AMQP_PORT,RABBITMQ_MANAGEMENT_PORT,RABBITMQ_STOMP_PORT,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASE_URL,BLUE_SERVER_BASE_URL,GREEN_SERVER_BASE_URL,LOAD_BALANCER_URL
+          script: |
+            set -e
+
+            cd ~
+
+            echo "=== 🔵 Deploying to BLUE Server ==="
+
+            echo "=== Creating .env file ==="
+            cat > .env.blue << ENVEOF
+            DB_HOST=${DB_HOST}
+            MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
+            POSTGRES_DB=${POSTGRES_DB}
+            POSTGRES_USER=${POSTGRES_USER}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT}
+            REDIS_PORT=${REDIS_PORT}
+            MONGODB_DB=${MONGODB_DB}
+            MONGODB_USER=${MONGODB_USER}
+            MONGODB_PASSWORD=${MONGODB_PASSWORD}
+            MONGODB_HOST_PORT=${MONGODB_HOST_PORT}
+            RABBITMQ_USER=${RABBITMQ_USER}
+            RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+            RABBITMQ_AMQP_PORT=${RABBITMQ_AMQP_PORT}
+            RABBITMQ_MANAGEMENT_PORT=${RABBITMQ_MANAGEMENT_PORT}
+            RABBITMQ_STOMP_PORT=${RABBITMQ_STOMP_PORT}
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            BASE_URL=${BASE_URL}
+            BLUE_SERVER_BASE_URL=${BLUE_SERVER_BASE_URL}
+            GREEN_SERVER_BASE_URL=${GREEN_SERVER_BASE_URL}
+            LOAD_BALANCER_URL=${LOAD_BALANCER_URL}
+            ENVEOF
+
+            chmod 600 .env.blue
+
+            echo "=== Logging in to GitHub Container Registry ==="
+            echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "=== Pulling latest image ==="
+            docker compose -f docker-compose.blue.yml --env-file .env.blue pull app
+
+            echo "=== Stopping old containers ==="
+            docker compose -f docker-compose.blue.yml --env-file .env.blue down
+
+            echo "=== Starting new containers ==="
+            docker compose -f docker-compose.blue.yml --env-file .env.blue up -d
+
+            echo "=== Waiting for application (60s) ==="
+            sleep 60
 
       - name: Health check BLUE server
         uses: jtalk/url-health-check-action@v4
         with:
-          # nginx에서 /health로 프록시 되도록 설정해두셨으니까 그대로 사용
-          url: http://${{ secrets.BLUE_SERVER_HOST }}/health
+          url: http://${{ secrets.BLUE_SERVER_HOST }}/actuator/health
           max-attempts: 20
           retry-delay: 10s
 
-      - name: Deployment Success
+      - name: Blue Deployment Success
         run: |
-          echo "### ✅ Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Blue Server Deployment Successful!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Deployed to:** BLUE server (single mode)" >> $GITHUB_STEP_SUMMARY
-          echo "**Server IP:** ${{ secrets.BLUE_SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Server:** Blue (158.180.75.249)" >> $GITHUB_STEP_SUMMARY
           echo "**Health check:** Passed ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 **Both servers are now running the latest version!**" >> $GITHUB_STEP_SUMMARY
+
+  # ========================================
+  # Job 5: Final Summary
+  # ========================================
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-green, deploy-blue]
+    if: always()
+
+    steps:
+      - name: Check deployment results
+        run: |
+          echo "### 📊 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Server | Status | Health Check |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|--------------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.deploy-green.result }}" == "success" ]; then
+            echo "| 🟢 Green | ✅ Success | Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🟢 Green | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.deploy-blue.result }}" == "success" ]; then
+            echo "| 🔵 Blue | ✅ Success | Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔵 Blue | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Server URLs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **LoadBalancer**: http://168.107.47.211" >> $GITHUB_STEP_SUMMARY
+          echo "- **Green Server**: http://168.107.31.207" >> $GITHUB_STEP_SUMMARY
+          echo "- **Blue Server**: http://158.180.75.249" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain**: http://www.munglog.site" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. ✅ Verify Green server is working correctly" >> $GITHUB_STEP_SUMMARY
+          echo "2. ⚠️ Manually switch LoadBalancer traffic to Green" >> $GITHUB_STEP_SUMMARY
+          echo "3. ✅ Monitor application metrics" >> $GITHUB_STEP_SUMMARY
+          echo "4. 🔄 If issues occur, switch back to Blue" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "Both servers may not be in sync." >> $GITHUB_STEP_SUMMARY
