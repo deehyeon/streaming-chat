@@ -37,7 +37,7 @@ public class StompWebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // 부하테스트 / 서버 간 통신용 (순수 WebSocket)
         registry.addEndpoint("/ws-stomp")
-                .setAllowedOrigins("http://localhost:3001");
+                .setAllowedOriginPatterns("*");
 
         registry.addEndpoint("/connect")
                 .setAllowedOrigins("http://localhost:3001")
