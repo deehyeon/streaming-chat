@@ -191,7 +191,7 @@ jobs:
             echo "=== 🟢 Deploying to GREEN Server ==="
 
             echo "=== Creating .env file ==="
-            cat > .env.green << ENVEOF
+            cat > .env << ENVEOF
             DB_HOST=${DB_HOST}
             MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
             POSTGRES_DB=${POSTGRES_DB}
@@ -216,19 +216,19 @@ jobs:
             LOAD_BALANCER_URL=${LOAD_BALANCER_URL}
             ENVEOF
 
-            chmod 600 .env.green
+            chmod 600 .env
 
             echo "=== Logging in to GitHub Container Registry ==="
             echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             echo "=== Pulling latest image ==="
-            docker compose -f docker-compose.green.yml --env-file .env.green pull app
+            docker compose -f docker-compose.green.yml --env-file .env pull app
 
             echo "=== Stopping old containers ==="
-            docker compose -f docker-compose.green.yml --env-file .env.green down
+            docker compose -f docker-compose.green.yml --env-file .env down
 
             echo "=== Starting new containers ==="
-            docker compose -f docker-compose.green.yml --env-file .env.green up -d
+            docker compose -f docker-compose.green.yml --env-file .env up -d
 
             echo "=== Waiting for application (60s) ==="
             sleep 60
@@ -313,7 +313,7 @@ jobs:
             echo "=== 🔵 Deploying to BLUE Server ==="
 
             echo "=== Creating .env file ==="
-            cat > .env.blue << ENVEOF
+            cat > .env << ENVEOF
             DB_HOST=${DB_HOST}
             MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
             POSTGRES_DB=${POSTGRES_DB}
@@ -338,19 +338,19 @@ jobs:
             LOAD_BALANCER_URL=${LOAD_BALANCER_URL}
             ENVEOF
 
-            chmod 600 .env.blue
+            chmod 600 .env
 
             echo "=== Logging in to GitHub Container Registry ==="
             echo "${{ secrets.ACCESS_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             echo "=== Pulling latest image ==="
-            docker compose -f docker-compose.blue.yml --env-file .env.blue pull app
+            docker compose -f docker-compose.blue.yml --env-file .env pull app
 
             echo "=== Stopping old containers ==="
-            docker compose -f docker-compose.blue.yml --env-file .env.blue down
+            docker compose -f docker-compose.blue.yml --env-file .env down
 
             echo "=== Starting new containers ==="
-            docker compose -f docker-compose.blue.yml --env-file .env.blue up -d
+            docker compose -f docker-compose.blue.yml --env-file .env up -d
 
             echo "=== Waiting for application (60s) ==="
             sleep 60
