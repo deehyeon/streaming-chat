@@ -186,11 +186,13 @@ jobs:
           script: |
             set -e
 
-            cd ~
+            # Green 전용 작업 디렉토리로 이동
+            mkdir -p ~/green
+            cd ~/green
 
             echo "=== 🟢 Deploying to GREEN Server ==="
 
-            echo "=== Creating .env file ==="
+            echo "=== Creating .env file in ~/green ==="
             cat > .env << ENVEOF
             DB_HOST=${DB_HOST}
             MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
@@ -250,13 +252,6 @@ jobs:
           echo "⚠️ **Next Step:** Manually switch LoadBalancer traffic to Green" >> $GITHUB_STEP_SUMMARY
 
   # ========================================
-  # Job 3: Manual Approval (Optional)
-  # ========================================
-  # GitHub Actions에서는 수동 승인을 위해 Environment를 사용
-  # Settings → Environments → production 생성 후
-  # Required reviewers 설정 필요
-
-  # ========================================
   # Job 4: Deploy to Blue Server (After Green Success)
   # ========================================
   deploy-blue:
@@ -308,11 +303,13 @@ jobs:
           script: |
             set -e
 
-            cd ~
+            # Blue 전용 작업 디렉토리로 이동
+            mkdir -p ~/blue
+            cd ~/blue
 
             echo "=== 🔵 Deploying to BLUE Server ==="
 
-            echo "=== Creating .env file ==="
+            echo "=== Creating .env file in ~/blue ==="
             cat > .env << ENVEOF
             DB_HOST=${DB_HOST}
             MESSAGE_BROKER_HOST=${MESSAGE_BROKER_HOST}
