@@ -41,7 +41,7 @@ public class ChatModifyService implements ChatSaver {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSeqGenerator chatSeqGenerator;
 
-    private final RabbitTemplate rabbitTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
     private final WebSocketMetricsConfig metricsConfig;
 
     @Override
@@ -113,7 +113,7 @@ public class ChatModifyService implements ChatSaver {
 
             // STOMP 채팅방으로 브로드캐스트
             String destination = "/topic/chat.room." + request.roomId();
-            rabbitTemplate.convertAndSend(destination, toPayload(chatMessage));
+            messagingTemplate.convertAndSend(destination, toPayload(chatMessage));
 
             // 메시지 전송 카운트 추가
             metricsConfig.recordMessageSent("chat_message", true);
@@ -127,7 +127,7 @@ public class ChatModifyService implements ChatSaver {
                 long unread = getUnreadMessageCount(request, participant, memberId, currentSeq);
 
                 String userDestination = "/topic/user." + memberId + ".room-summary";
-                rabbitTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
+                messagingTemplate.convertAndSend(userDestination, ChatRoomSummary.of(chatRoom, unread, chatRoom.getChatRoomType(), chatRoom.getLastMessagePreview(), chatRoom.getLastMessageAt()));
 
                 // 개인 토픽 전송도 카운트
                 metricsConfig.recordMessageSent("user_room_summary", false);
