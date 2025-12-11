@@ -47,8 +47,11 @@ public class SecurityConfig {
                         authorize
                                 .requestMatchers(HttpMethod.OPTIONS, "/v1/**", "/**").permitAll()
                                 .requestMatchers(
+                                        "/ws-stomp/**",
                                         "/connect/**",
-                                        "/publish/**"
+                                        "/publish/**",
+                                        "/topic/**",
+                                        "/queue/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/swagger-ui.html",
