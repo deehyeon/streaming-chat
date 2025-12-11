@@ -47,7 +47,9 @@ public class SecurityConfig {
                         authorize
                                 .requestMatchers(HttpMethod.OPTIONS, "/v1/**", "/**").permitAll()
                                 .requestMatchers(
+                                        "/ws-stomp",
                                         "/ws-stomp/**",
+                                        "/connect",
                                         "/connect/**",
                                         "/publish/**",
                                         "/topic/**",
