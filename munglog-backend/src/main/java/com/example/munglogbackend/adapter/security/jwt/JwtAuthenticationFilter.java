@@ -54,7 +54,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // STOMP
             "/connect",
-            "/connect/"
+            "/connect/",
+            "/ws-stomp/",
+            "/ws-stomp"
     );
 
 
