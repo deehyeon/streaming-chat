@@ -2,6 +2,12 @@
 
 유기견 보호소 봉사 신청 플랫폼 프론트엔드
 
+<img width="1800" height="1010" alt="image" src="https://github.com/user-attachments/assets/f486b18e-136a-4884-80dc-80feba0ef661" />
+<img width="1800" height="1008" alt="image" src="https://github.com/user-attachments/assets/aabee8bd-8846-415d-b24b-40cd55b3f0ce" />
+<img width="1800" height="1010" alt="image" src="https://github.com/user-attachments/assets/2cdf548b-2073-4ced-97b7-4bb9cb49ace1" />
+<img width="1800" height="1009" alt="image" src="https://github.com/user-attachments/assets/a2fda1ec-bc7a-4e1c-9767-b67ab0b9223b" />
+
+
 ## 환경 설정
 
 ### 1. 환경 변수 설정
